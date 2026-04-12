@@ -1,0 +1,11 @@
+--- a/packaging/macos/build.sh
++++ b/packaging/macos/build.sh
+@@ -370,7 +370,7 @@
+        --parallel $DRAKETHREADS
+
+   # cd ${CMPL}/${package}
+-  build_tarball command "make DESTDIR=TMPDIR install"
++  build_tarball command "cmake --install . --prefix TMPDIR${TARGET}"
+
+   CXXFLAGS=$saved_CXXFLAGS
+ }
