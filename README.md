@@ -35,7 +35,9 @@ The DMG will be at `~/tmp/compile/MKVToolNix-98.0.dmg`.
 
 ## Credits
 
-All credit to [Moritz Bunkus](https://www.bunkus.org/blog/) and contributors for MKVToolNix.
+All credit to [Moritz Bunkus](https://www.bunkus.org/blog/) and the MKVToolNix contributors for building and maintaining this incredible tool for over 20 years. Moritz provided macOS builds for many years despite not owning a Mac himself -- thank you for that and for all the work that goes into MKVToolNix.
+
+This repo simply picks up where the official macOS builds left off. If you find MKVToolNix useful, consider supporting the project upstream.
 
 Source: https://codeberg.org/mbunkus/mkvtoolnix
 
