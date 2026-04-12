@@ -1,0 +1,84 @@
+name: Build MKVToolNix macOS ARM64
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Upstream release tag (e.g. release-98.0)'
+        required: true
+        default: 'release-98.0'
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+      should_build: ${{ steps.resolve.outputs.should_build }}
+    steps:
+      - name: Resolve tag
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG=$(git ls-remote --tags --sort=-v:refname \
+              https://codeberg.org/mbunkus/mkvtoolnix.git \
+              'refs/tags/release-*' | head -1 | sed 's|.*refs/tags/||')
+          fi
+          VERSION=${TAG#release-}
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          if gh release view "v${VERSION}-arm64" --repo "${{ github.repository }}" &>/dev/null; then
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            echo "Release v${VERSION}-arm64 already exists, skipping."
+          else
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            echo "Will build ${TAG}"
+          fi
+
+  build:
+    needs: check-release
+    if: needs.check-release.outputs.should_build == 'true'
+    runs-on: macos-15
+    env:
+      TAG: ${{ needs.check-release.outputs.tag }}
+      VERSION: ${{ needs.check-release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build MKVToolNix
+        run: ./build-local.sh "${TAG}"
+        timeout-minutes: 180
+
+      - name: Rename DMG
+        run: |
+          mv ~/tmp/compile/MKVToolNix-${VERSION}.dmg \
+             ~/tmp/compile/MKVToolNix-${VERSION}-apple-silicon.dmg
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${VERSION}-arm64" \
+            --repo "${{ github.repository }}" \
+            --title "MKVToolNix ${VERSION} — macOS Apple Silicon" \
+            --notes "$(cat <<'NOTES'
+          Unofficial macOS ARM64 build of [MKVToolNix](https://mkvtoolnix.download/).
+
+          Built from upstream tag \`${TAG}\`.
+
+          **Not signed or notarized.** To open: right-click > Open, or run:
+          ```
+          xattr -cr /Applications/MKVToolNix*.app
+          ```
+
+          Source: https://codeberg.org/mbunkus/mkvtoolnix
+          NOTES
+          )" \
+            ~/tmp/compile/MKVToolNix-${VERSION}-apple-silicon.dmg
