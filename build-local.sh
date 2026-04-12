@@ -25,11 +25,12 @@ fi
 
 # Copy our config overlay
 echo "==> Applying config overlay..."
-cp "${SCRIPT_DIR}/config/config.local.sh" "${CLONE_DIR}/packaging/macos/config.local.sh"
+cp -f "${SCRIPT_DIR}/config/config.local.sh" "${CLONE_DIR}/packaging/macos/config.local.sh"
 
-# Apply patches
+# Reset source tree and apply patches fresh
 echo "==> Applying patches..."
 cd "${CLONE_DIR}"
+git checkout -- .
 for patch in "${SCRIPT_DIR}"/patches/*.patch; do
   [[ -f "${patch}" ]] || continue
   echo "    Applying ${patch:t}..."
