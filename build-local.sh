@@ -25,7 +25,7 @@ fi
 
 # Copy our config overlay
 echo "==> Applying config overlay..."
-cp -f "${SCRIPT_DIR}/config/config.local.sh" "${CLONE_DIR}/packaging/macos/config.local.sh"
+command cp "${SCRIPT_DIR}/config/config.local.sh" "${CLONE_DIR}/packaging/macos/config.local.sh"
 
 # Reset source tree and apply patches fresh
 echo "==> Applying patches..."
