@@ -10,6 +10,9 @@ UPSTREAM_URL="https://codeberg.org/mbunkus/mkvtoolnix.git"
 echo "==> Building MKVToolNix ${VERSION} for ARM64"
 echo "==> Work directory: ${WORK_DIR}"
 
+# Ensure required directories exist
+mkdir -p "$HOME/opt/include" "$HOME/opt/lib" "${WORK_DIR}"
+
 # Clone upstream at the specified tag
 CLONE_DIR="${WORK_DIR}/mkvtoolnix-src"
 if [[ ! -d "${CLONE_DIR}/.git" ]]; then

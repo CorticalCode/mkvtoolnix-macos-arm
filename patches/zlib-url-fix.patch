@@ -1,0 +1,5 @@
+--- a/packaging/macos/specs.sh
++++ b/packaging/macos/specs.sh
+@@ -15 +15 @@
+-spec_zlib=(zlib-v1.3.1.tar.xz https://zlib.net/zlib-1.3.1.tar.xz 38ef96b8dfe510d42707d9c781877914792541133e1870841463bfa73f883e32)
++spec_zlib=(zlib-v1.3.1.tar.xz https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.xz 38ef96b8dfe510d42707d9c781877914792541133e1870841463bfa73f883e32)
