@@ -9,3 +9,6 @@
 
 # Distribution outputs (DMGs)
 dist/
+
+# Global build counter (local state)
+.build-counter

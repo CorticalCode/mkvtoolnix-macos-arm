@@ -181,13 +181,27 @@ esac
 echo "==> Building DMG..."
 ./build.sh dmg
 
-# Copy DMG to dist/
+# --- Name and copy DMG to dist/ ---
+
 DIST_DIR="${SCRIPT_DIR}/dist"
+BUILD_COUNTER_FILE="${SCRIPT_DIR}/.build-counter"
 mkdir -p "${DIST_DIR}"
+
 DMG_PATH="${WORK_DIR}/MKVToolNix-${VERSION}.dmg"
 
 if [[ -f "${DMG_PATH}" ]]; then
-  DMG_NAME="MKVToolNix-${VERSION}-apple-silicon.dmg"
+  # Increment global build counter
+  if [[ -f "${BUILD_COUNTER_FILE}" ]]; then
+    BUILD_NUM=$(( $(cat "${BUILD_COUNTER_FILE}") + 1 ))
+  else
+    BUILD_NUM=1
+  fi
+  echo "${BUILD_NUM}" > "${BUILD_COUNTER_FILE}"
+
+  # Get current git branch name for the label
+  BRANCH=$(cd "${SCRIPT_DIR}" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+
+  DMG_NAME="MKVToolNix-${VERSION}-macos-arm-${BRANCH}-b$(printf '%03d' ${BUILD_NUM}).dmg"
   command cp "${DMG_PATH}" "${DIST_DIR}/${DMG_NAME}"
   echo "==> Done!"
   echo "    Build output: ${DMG_PATH}"
