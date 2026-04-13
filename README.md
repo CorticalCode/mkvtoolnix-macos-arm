@@ -1,8 +1,8 @@
 # mkvtoolnix-macos-arm
 
-Unofficial macOS Apple Silicon (ARM64) builds of [MKVToolNix](https://mkvtoolnix.download/).
+Unofficial macOS Apple Silicon (ARM64) builds of [MKVToolNix GUI](https://mkvtoolnix.download/).
 
-The MKVToolNix developer no longer provides macOS binaries. This repo automates building them from the official source.
+The MKVToolNix developer no longer provides macOS binaries. The CLI tools (`mkvmerge`, `mkvextract`, `mkvpropedit`, `mkvinfo`) are available via `brew install mkvtoolnix`, but the GUI is not. This repo builds the full MKVToolNix GUI application from the official source.
 
 **These are personal builds shared as-is.** No warranty, no guaranteed support, no SLA. If a build works for you, great. If it doesn't, the build scripts and patches are here so you can debug and fix it yourself. Issues and contributions are welcome but may not receive a timely response. For MKVToolNix bugs unrelated to this build, report them [upstream](https://codeberg.org/mbunkus/mkvtoolnix/issues).
 
