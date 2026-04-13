@@ -37,6 +37,12 @@ for patch in "${SCRIPT_DIR}"/patches/*.patch; do
   git apply --check "${patch}" 2>/dev/null && git apply "${patch}" || echo "    (already applied or skipped)"
 done
 
+# Copy Qt source patches (applied by upstream build.sh via qt-patches/ mechanism)
+if [[ -d "${SCRIPT_DIR}/patches/qt-patches" ]]; then
+  echo "==> Installing Qt source patches..."
+  command cp -r "${SCRIPT_DIR}/patches/qt-patches" "${CLONE_DIR}/packaging/macos/qt-patches"
+fi
+
 # Build
 echo "==> Running build.sh (this will take a while)..."
 cd "${CLONE_DIR}/packaging/macos"
