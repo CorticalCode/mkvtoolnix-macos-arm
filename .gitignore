@@ -1,0 +1,9 @@
+# Private scratch system — branch-specific docs, specs, plans
+# Accessible to all AI assistants (Claude, Gemini, Codex)
+/
+
+# Claude Code project config (local permissions, memory)
+/
+
+# Build artifacts
+*.dmg
