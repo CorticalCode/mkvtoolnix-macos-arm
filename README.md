@@ -1,4 +1,4 @@
-# mkvtoolnix-macos-arm
+# mkvtoolnix-gui-macos
 
 Unofficial macOS Apple Silicon (ARM64) builds of [MKVToolNix GUI](https://mkvtoolnix.download/).
 
@@ -21,8 +21,8 @@ xattr -cr /Applications/MKVToolNix*.app
 Requirements: Xcode CLI tools, ~10 GB disk space, 1-3 hours.
 
 ```sh
-git clone https://github.com/corticalcode/mkvtoolnix-macos-arm.git
-cd mkvtoolnix-macos-arm
+git clone https://github.com/corticalcode/mkvtoolnix-gui-macos.git
+cd mkvtoolnix-gui-macos
 ./build-local.sh release-98.0
 ```
 
