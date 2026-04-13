@@ -129,7 +129,7 @@ function restore_deps {
     local pkg_file="${PACKAGE_DIR}/${pkg}.tar.gz"
     if [[ -f "${pkg_file}" ]]; then
       echo "    Restoring ${pkg}..."
-      cd "${TARGET}" && tar xzf "${pkg_file}"
+      (cd "${TARGET}" && tar xzf "${pkg_file}")
     fi
   done
 
