@@ -2,13 +2,25 @@
 
 Living document tracking every modification made to build MKVToolNix on macOS Apple Silicon, the problems encountered, and how they were resolved.
 
+## Size progression
+
+| Build | DMG | App on disk | Change |
+|-------|-----|-------------|--------|
+| b001 (baseline, Qt 6.10.0) | 34.9 MB | 84.8 MB | -- |
+| b002 (+ strip dylibs) | 34.0 MB | 78.9 MB | -5.9 MB app |
+| b003 (+ Qt 6.10.2) | 34.0 MB | 78.9 MB | one fewer patch |
+| b004 (+ no PrintSupport) | 33.9 MB | 78.4 MB | -0.5 MB app |
+| **Total saved** | **1.0 MB** | **6.4 MB (7.6%)** | |
+
 ---
 
-## 1. Qt6 cmake install (`patches/qt6-cmake-install.patch`)
+## Active patches (4)
+
+### 1. Qt6 cmake install (`patches/qt6-cmake-install.patch`)
 
 **File patched:** `packaging/macos/build.sh` line 373
 
-**Problem:** The upstream `build_qt` function compiles Qt6 using `cmake --build` but then tries to install with `make DESTDIR=TMPDIR install`. Qt6's build system is fully cmake-based — the Makefile install target doesn't work correctly for Qt6's module layout.
+**Problem:** The upstream `build_qt` function compiles Qt6 using `cmake --build` but then tries to install with `make DESTDIR=TMPDIR install`. Qt6's build system is fully cmake-based -- the Makefile install target doesn't work correctly for Qt6's module layout.
 
 **Root cause:** Qt transitioned from qmake to cmake as its build system. The upstream MKVToolNix build script was written when `make install` still worked. Qt6's cmake build generates install rules that are only accessible via `cmake --install`.
 
@@ -20,110 +32,110 @@ Living document tracking every modification made to build MKVToolNix on macOS Ap
 
 **Note:** Only the Qt-specific line (line 373) is patched. The generic `build_package` function (line 150) has the same `make install` pattern but it works fine for other cmake packages (cmark, etc.) because they generate proper Makefile install targets.
 
-**Source:** MKVToolNix forum thread — multiple users reported this fix for Qt6 builds.
+**Source:** MKVToolNix forum thread -- multiple users reported this fix for Qt6 builds.
 
 ---
 
-## 2. Dead zlib download URL (`patches/zlib-url-fix.patch`)
+### 2. Specs updates (`patches/specs-updates.patch`)
 
-**File patched:** `packaging/macos/specs.sh` line 15
+**File patched:** `packaging/macos/specs.sh`
 
-**Problem:** Build fails immediately at the zlib step. `curl` downloads a 355-byte HTML error page instead of the tarball. Checksum verification catches it:
-```
-File checksum failed: zlib-v1.3.1.tar.xz SHA256 expected 38ef96b... actual cc0b4e4...
-```
+This patch combines two changes to the same file to avoid context conflicts when applied in sequence.
 
-**Root cause:** The upstream URL `https://zlib.net/zlib-1.3.1.tar.xz` returns 404. When zlib releases a new version, they remove old tarballs from their primary download location. The MKVToolNix specs.sh pins version 1.3.1 but the host no longer serves it.
+**2a. Dead zlib download URL**
 
-**Fix:** Switch to the GitHub releases mirror which preserves all versions:
+**Problem:** Build fails at zlib step. `curl` downloads a 355-byte HTML error page. Checksum verification catches it.
+
+**Root cause:** `https://zlib.net/zlib-1.3.1.tar.xz` returns 404. zlib removes old tarballs when new versions release.
+
+**Fix:** Switch to GitHub releases mirror (same file, same checksum):
 ```
 - https://zlib.net/zlib-1.3.1.tar.xz
 + https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.xz
 ```
 
-**Verification:** Downloaded from both URLs and confirmed identical SHA256 checksum (`38ef96b8dfe510d42707d9c781877914792541133e1870841463bfa73f883e32`). Same file, different host.
+**Shelf life:** Unnecessary when upstream bumps zlib or fixes the URL.
 
-**Shelf life:** This patch becomes unnecessary when upstream bumps to a newer zlib version with a working URL, or updates their mirror.
+**2b. Qt version bump to 6.10.2**
 
----
+**Problem:** Qt 6.10.0 has a compilation bug on ARM (`__yield` without `arm_acle.h` include) and community-reported UI issues (progress bar, preferences truncation, pane resizing, macOS 26 rendering).
 
-## 3. Qt6 ARM `__yield` declaration (`patches/qt-patches/001-fix-arm-yield-declaration.patch`)
-
-**File patched:** `qtbase/src/corelib/thread/qyieldcpu.h` (inside Qt6 source)
-
-**Problem:** Qt6 compilation fails at 6% with:
-```
-qyieldcpu.h:37:5: error: implicitly declaring library function '__yield'
-  with type 'void ()' [-Werror,-Wimplicit-function-declaration]
-```
-
-**Root cause:** Qt6's `qyieldcpu.h` uses `__has_builtin(__yield)` to detect ARM yield support, and if true, calls `__yield()`. On Apple clang 21 (Xcode on macOS 26), `__has_builtin(__yield)` returns true — the compiler knows the intrinsic — but the function is only formally declared in `<arm_acle.h>`. Without that include, calling `__yield()` is an implicit function declaration. Combined with Qt's internal `-Werror`, this becomes a hard build failure.
-
-**Why a flag workaround didn't work:** We first tried `-Wno-error=implicit-function-declaration` in `QT_CXXFLAGS`. This downgraded the error to a warning for most Qt targets. However, Qt's internal `Bootstrap` target (used to build Qt's own build tools like moc and rcc) compiles with hardcoded cmake flags that ignore environment `CXXFLAGS` entirely. The Bootstrap target still failed.
-
-**Fix:** Patch the Qt source directly to add the missing include:
-```c
-#if defined(Q_PROCESSOR_ARM) && __has_include(<arm_acle.h>)
-#  include <arm_acle.h>
-#endif
-```
-
-This is the proper fix — the compiler's own error message suggested it: "include the header `<arm_acle.h>` or explicitly provide a declaration for `__yield`".
-
-**Applied via:** Upstream build system's own `qt-patches/` mechanism. The `build_package` function in `build.sh` automatically applies patches from a `{package}-patches/` directory after extraction.
-
-**Upstream status:** Fixed in Qt 6.10.2. The identical `arm_acle.h` include was added to the upstream Qt source. This patch has been **retired** as of our Qt 6.10.2 bump -- it is no longer included in the build.
+**Fix:** Bump Qt from 6.10.0 to 6.10.2 with updated download URL and SHA256 checksum. Qt 6.10.2 includes the `arm_acle.h` fix upstream, eliminating the need for our separate Qt source patch.
 
 ---
 
-## 4. Config overlay (`config/config.local.sh`)
+### 3. Remove unused PrintSupport (`patches/remove-printsupport.patch`)
 
-**Not a patch** — this is a config file sourced by the upstream build system.
+**File patched:** `packaging/macos/build.sh` (two locations)
 
-**What it does:**
-- `SIGNATURE_IDENTITY=""` — disables code signing (we don't have the developer's Apple cert)
-- `DRAKETHREADS=12` — parallel build threads (default is 4, machine has 14 cores)
+**Problem:** Qt PrintSupport module (453 KB) is compiled and bundled in the app, but MKVToolNix has zero print functionality -- no references to `QPrinter`, `QPrintDialog`, or `QPrintPreview` anywhere in the source.
 
-**Why SIGNATURE_IDENTITY matters:** The upstream `config.sh` hardcodes `SIGNATURE_IDENTITY="Developer ID Application: Moritz Bunkus (YZ9DVS8D8C)"`. Without blanking it, the DMG build step tries to codesign with a certificate we don't have and fails.
+**Root cause:** The upstream Qt configure line doesn't explicitly exclude PrintSupport. It disables cups but not the broader print module.
+
+**Fix:**
+1. Add `-no-feature-printsupport` to the Qt configure arguments
+2. Remove `PrintSupport*.dylib` from the dylib copy in `build_dmg`
+
+**Verification:** Traced all Qt class imports in `src/mkvtoolnix-gui/` -- confirmed zero PrintSupport usage. Verified the module is absent from the built app bundle.
+
+**Size impact:** 453 KB uncompressed, 138 KB compressed in DMG.
+
+---
+
+### 4. Strip debug symbols from dylibs (`patches/strip-dylibs.patch`)
+
+**File patched:** `packaging/macos/build.sh` after line 512
+
+**Problem:** Upstream strips the five mkv binaries but not the Qt shared libraries or plugins. Debug symbols in bundled third-party libraries add ~6 MB with no value in a distribution build.
+
+**Root cause:** The upstream build was designed for a developer who could debug against these libraries.
+
+**Fix:** Add `strip -x` after `fix_library_paths.sh` runs, targeting all dylibs in the app bundle. The `-x` flag removes local symbols (debug info) while preserving global symbols needed for dynamic linking.
+
+**Why after fix_library_paths.sh:** Library path rewriting modifies the dylib binaries. Stripping before path fixup could remove relocation info needed by `install_name_tool`.
+
+**Size impact:** 6 MB uncompressed (84.8 -> 78.9 MB), 0.9 MB compressed in DMG.
+
+---
+
+## Config overlay (`config/config.local.sh`)
+
+**Not a patch** -- a config file sourced by the upstream build system.
+
+- `SIGNATURE_IDENTITY=""` -- disables code signing (no Apple Developer cert)
+- `DRAKETHREADS=12` -- parallel build threads (default is 4, machine has 14 cores)
 
 ---
 
 ## Build script fixes (in `build-local.sh`)
 
-**`command cp` instead of `cp`:** macOS zsh aliases `cp` to `cp -i` (interactive). In non-interactive shells (background builds), `cp -i` prompts for overwrite confirmation, gets no input, and defaults to "no" — silently skipping the file copy. `command cp` bypasses shell aliases.
+**`command cp` instead of `cp`:** macOS zsh aliases `cp` to `cp -i` (interactive). In non-interactive shells, `cp -i` prompts for overwrite confirmation, gets no input, and defaults to "no". `command cp` bypasses the alias.
 
-**`git checkout -- .` before patching:** On re-runs, the source tree may have patches already applied. `git apply` fails on already-patched files. Resetting first ensures a clean slate.
+**`git checkout -- .` before patching:** On re-runs, the source tree may have patches already applied. Resetting first ensures a clean slate.
 
-**`mkdir -p ~/opt/include ~/opt/lib`:** The upstream build scripts assume these directories exist. Without them, the first dependency build fails looking for include paths.
+**`mkdir -p ~/opt/include ~/opt/lib`:** The upstream build scripts assume these directories exist.
+
+**Smart dep caching:** Auto-detects 14 cached dependency packages in `~/opt/packages/`. If all present, restores from cache and only builds mkvtoolnix (minutes instead of hours).
 
 ---
 
-## 5. Strip debug symbols from dylibs (`patches/strip-dylibs.patch`)
+## Retired patches
 
-**Type:** Optional optimization
+### Qt6 ARM `__yield` declaration (formerly `patches/qt-patches/001-fix-arm-yield-declaration.patch`)
 
-**File patched:** `packaging/macos/build.sh` after line 512
+**Retired:** 2026-04-13
+**Reason:** Fixed upstream in Qt 6.10.2. The identical `arm_acle.h` include was added to the Qt source.
 
-**Problem:** The upstream `build_dmg` function strips the five mkv binaries (`strip ${dmgcnt}/MacOS/mkv{merge,info,extract,propedit,toolnix-gui}`) but does not strip the Qt shared libraries or plugins that are copied into the app bundle. These dylibs contain debug symbols that add ~6 MB to the installed app size.
-
-**Root cause:** The upstream build was designed for a developer who could debug against these libraries. For distribution builds, debug symbols in third-party libraries have no value.
-
-**Fix:** Add `strip -x` after `fix_library_paths.sh` runs, targeting all dylibs in the app bundle. The `-x` flag removes local symbols (debug info) while preserving global symbols needed for dynamic linking.
-
-**Size impact:**
-- Uncompressed app: 84.8 MB -> 78.9 MB (6 MB saved, 7% reduction)
-- DMG (zlib compressed): 34.9 MB -> 34.0 MB (0.9 MB saved — compression already eliminates much of the debug symbol bloat)
-
-**Why after fix_library_paths.sh:** The library path rewriting modifies the dylib binaries. Stripping before path fixup could remove relocation info needed by `install_name_tool`. Stripping after ensures paths are already set.
+**Original problem:** Qt6's `qyieldcpu.h` called `__yield()` on ARM without including `<arm_acle.h>`. Apple clang 21 treated this as `-Werror`. Qt's Bootstrap target ignored environment `CXXFLAGS`, so flag workarounds didn't reach it. Patching the Qt source directly was the proper fix.
 
 ---
 
 ## Issues investigated but not requiring patches
 
-**`-no-rpath` crash:** Research flagged this as a common Qt6 build failure on macOS. Checked v98.0 — the flag is not present. Already removed in upstream.
+**`-no-rpath` crash:** Flagged in research as a common Qt6 build failure. Not present in v98.0 -- already removed upstream.
 
-**Dependency build failures on ARM:** No ARM-specific issues. All 15 dependencies (autoconf, automake, pkg-config, libiconv, cmake, ogg, vorbis, flac, zlib, gettext, cmark, gmp, boost, curl, docbook-xsl) build cleanly on Apple Silicon.
+**Dependency build failures on ARM:** No ARM-specific issues. All 15 dependencies build cleanly on Apple Silicon.
 
 **macOS 13 deployment target:** No issues. Binaries built on macOS 26 with `MACOSX_DEPLOYMENT_TARGET=13` work correctly.
 
-**Stale dependency URLs:** Checked all 17 dependency URLs. Only zlib was dead (patched above). All others return 200.
+**Stale dependency URLs:** Checked all 17 URLs. Only zlib was dead (patched above). All others return 200.
