@@ -1,6 +1,19 @@
 # Changelog
 
-## v98.0-arm64 (2026-04-13)
+## v98.0-arm64-b002 (2026-04-13)
+
+Strip debug symbols from Qt shared libraries and plugins.
+
+**Size impact:**
+- Uncompressed app: 84.8 MB -> 78.9 MB (6 MB saved, 7% reduction)
+- DMG: 34.9 MB -> 34.0 MB (0.9 MB saved, compressed masks most of the gain)
+
+**Patch added:**
+- `strip-dylibs.patch` — strip -x on all dylibs after library path fixup
+
+---
+
+## v98.0-arm64-b001 (2026-04-13)
 
 First successful build of MKVToolNix 98.0 for macOS Apple Silicon.
 

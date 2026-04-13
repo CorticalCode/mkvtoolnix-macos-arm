@@ -98,6 +98,26 @@ This is the proper fix — the compiler's own error message suggested it: "inclu
 
 ---
 
+## 5. Strip debug symbols from dylibs (`patches/strip-dylibs.patch`)
+
+**Type:** Optional optimization
+
+**File patched:** `packaging/macos/build.sh` after line 512
+
+**Problem:** The upstream `build_dmg` function strips the five mkv binaries (`strip ${dmgcnt}/MacOS/mkv{merge,info,extract,propedit,toolnix-gui}`) but does not strip the Qt shared libraries or plugins that are copied into the app bundle. These dylibs contain debug symbols that add ~6 MB to the installed app size.
+
+**Root cause:** The upstream build was designed for a developer who could debug against these libraries. For distribution builds, debug symbols in third-party libraries have no value.
+
+**Fix:** Add `strip -x` after `fix_library_paths.sh` runs, targeting all dylibs in the app bundle. The `-x` flag removes local symbols (debug info) while preserving global symbols needed for dynamic linking.
+
+**Size impact:**
+- Uncompressed app: 84.8 MB -> 78.9 MB (6 MB saved, 7% reduction)
+- DMG (zlib compressed): 34.9 MB -> 34.0 MB (0.9 MB saved — compression already eliminates much of the debug symbol bloat)
+
+**Why after fix_library_paths.sh:** The library path rewriting modifies the dylib binaries. Stripping before path fixup could remove relocation info needed by `install_name_tool`. Stripping after ensures paths are already set.
+
+---
+
 ## Issues investigated but not requiring patches
 
 **`-no-rpath` crash:** Research flagged this as a common Qt6 build failure on macOS. Checked v98.0 — the flag is not present. Already removed in upstream.
