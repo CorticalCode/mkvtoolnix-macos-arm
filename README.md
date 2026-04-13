@@ -37,7 +37,17 @@ The DMG will be at `~/tmp/compile/MKVToolNix-98.0.dmg`.
 
 All credit to [Moritz Bunkus](https://www.bunkus.org/blog/) and the MKVToolNix contributors for building and maintaining this incredible tool for over 20 years. Moritz provided macOS builds for many years despite not owning a Mac himself -- thank you for that and for all the work that goes into MKVToolNix.
 
-This repo simply picks up where the official macOS builds left off. If you find MKVToolNix useful, consider supporting the project upstream.
+This repo builds on the work of the macOS build community on the [MKVToolNix forum](https://help.mkvtoolnix.download/):
+
+- **[Miklos Juhasz](https://github.com/mjuhasz)** -- contributed macOS patches upstream (dock progress bar, dark/light mode fix in v98.0) and documented key build fixes including the missing include directory and Qt6 build adjustments
+- **Ryu67** -- provided community ARM builds (v92 through v98.0) that demonstrated feasibility and kept users going while official builds were unavailable
+- **umzyi99** -- documented Qt version-specific fixes and dark mode icon support
+- **SoCuul** -- demonstrated signed and notarized builds on Apple Silicon
+- **Touchstone64** -- tested v98.0 on macOS 26 and documented dependency URL and Qt compatibility issues
+
+The build patches in this repo were informed by solutions shared across the [Building MKVToolNix with GUI on a Mac](https://help.mkvtoolnix.download/t/building-mkvtoolnix-with-gui-on-a-mac/1361) and [Apple Silicon / Retirement of Rosetta 2](https://help.mkvtoolnix.download/t/apple-silicon-retirement-of-rosetta-2/1371) forum threads.
+
+If you find MKVToolNix useful, consider supporting the project upstream.
 
 Source: https://codeberg.org/mbunkus/mkvtoolnix
 
