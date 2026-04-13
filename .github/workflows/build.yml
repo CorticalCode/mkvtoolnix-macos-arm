@@ -2,13 +2,19 @@ name: Build MKVToolNix macOS ARM64
 
 on:
   schedule:
-    - cron: '0 6 1 * *'
+    # Check for new upstream releases weekly on Mondays at 06:00 UTC
+    - cron: '0 6 * * 1'
   workflow_dispatch:
     inputs:
       tag:
         description: 'Upstream release tag (e.g. release-98.0)'
         required: true
         default: 'release-98.0'
+      force:
+        description: 'Force rebuild even if release exists'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   check-release:
@@ -26,6 +32,7 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             TAG="${{ github.event.inputs.tag }}"
           else
+            # Find latest upstream release tag
             TAG=$(git ls-remote --tags --sort=-v:refname \
               https://codeberg.org/mbunkus/mkvtoolnix.git \
               'refs/tags/release-*' | head -1 | sed 's|.*refs/tags/||')
@@ -33,13 +40,19 @@ jobs:
           VERSION=${TAG#release-}
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved: ${TAG} (version ${VERSION})"
 
-          if gh release view "v${VERSION}-arm64" --repo "${{ github.repository }}" &>/dev/null; then
+          # Check if we already have any release for this version
+          FORCE="${{ github.event.inputs.force }}"
+          if [[ "${FORCE}" == "true" ]]; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            echo "Force build requested."
+          elif gh release list --repo "${{ github.repository }}" --limit 50 | grep -q "v${VERSION}"; then
             echo "should_build=false" >> "$GITHUB_OUTPUT"
-            echo "Release v${VERSION}-arm64 already exists, skipping."
+            echo "Release for v${VERSION} already exists, skipping."
           else
             echo "should_build=true" >> "$GITHUB_OUTPUT"
-            echo "Will build ${TAG}"
+            echo "New version ${VERSION} detected, will build."
           fi
 
   build:
@@ -51,6 +64,30 @@ jobs:
       VERSION: ${{ needs.check-release.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # Layer 1: GitHub Actions cache (ephemeral, 7-day TTL)
+      - name: Restore dependency cache
+        id: dep-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/opt/packages
+          key: deps-${{ hashFiles('patches/zlib-url-fix.patch', 'patches/qt-version-bump-6.10.2.patch') }}
+          restore-keys: |
+            deps-
+
+      # Layer 2: Git LFS (permanent, if cache missed and LFS has deps)
+      - name: Restore deps from LFS
+        if: steps.dep-cache.outputs.cache-hit != 'true'
+        run: |
+          if [[ -d "lfs-deps" ]] && ls lfs-deps/*.tar.gz &>/dev/null; then
+            echo "Restoring deps from LFS..."
+            mkdir -p ~/opt/packages
+            cp lfs-deps/*.tar.gz ~/opt/packages/
+          else
+            echo "No LFS deps available, will build from source."
+          fi
 
       - name: Build MKVToolNix
         run: ./build-local.sh "${TAG}"
@@ -59,7 +96,7 @@ jobs:
       - name: Rename DMG
         run: |
           mv ~/tmp/compile/MKVToolNix-${VERSION}.dmg \
-             ~/tmp/compile/MKVToolNix-${VERSION}-apple-silicon.dmg
+             ~/tmp/compile/MKVToolNix-${VERSION}-macos-arm.dmg
 
       - name: Create GitHub Release
         env:
@@ -67,18 +104,21 @@ jobs:
         run: |
           gh release create "v${VERSION}-arm64" \
             --repo "${{ github.repository }}" \
-            --title "MKVToolNix ${VERSION} — macOS Apple Silicon" \
-            --notes "$(cat <<'NOTES'
-          Unofficial macOS ARM64 build of [MKVToolNix](https://mkvtoolnix.download/).
+            --title "MKVToolNix ${VERSION} — macOS ARM" \
+            --notes "$(cat <<NOTES
+          Unofficial macOS ARM64 build of [MKVToolNix ${VERSION}](https://mkvtoolnix.download/).
 
-          Built from upstream tag \`${TAG}\`.
+          Built from upstream tag \`${TAG}\` with Qt 6.10.2, Boost 1.88.0.
 
-          **Not signed or notarized.** To open: right-click > Open, or run:
-          ```
+          **Not signed or notarized.** To open: right-click the app > Open, or run:
+          \`\`\`
           xattr -cr /Applications/MKVToolNix*.app
-          ```
+          \`\`\`
 
-          Source: https://codeberg.org/mbunkus/mkvtoolnix
+          See [PATCHES.md](https://github.com/${{ github.repository }}/blob/main/PATCHES.md) for build patches.
+          See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for build history.
+
+          Source: https://codeberg.org/mbunkus/mkvtoolnix/src/tag/${TAG}
           NOTES
           )" \
-            ~/tmp/compile/MKVToolNix-${VERSION}-apple-silicon.dmg
+            ~/tmp/compile/MKVToolNix-${VERSION}-macos-arm.dmg
