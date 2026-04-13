@@ -12,3 +12,4 @@ dist/
 
 # Global build counter (local state)
 .build-counter
+.DS_Store
