@@ -194,7 +194,7 @@ echo "==> Building DMG..."
 # --- Name and copy DMG to dist/ ---
 
 DIST_DIR="${SCRIPT_DIR}/dist"
-BUILD_COUNTER_FILE="${SCRIPT_DIR}/.build-counter"
+BUILD_COUNTER_FILE="${SCRIPT_DIR}/.build-counter-${ARCH_LABEL}"
 mkdir -p "${DIST_DIR}"
 
 DMG_PATH="${WORK_DIR}/MKVToolNix-${VERSION}.dmg"

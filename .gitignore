@@ -10,8 +10,8 @@
 # Distribution outputs (DMGs)
 dist/
 
-# Global build counter (local state)
-.build-counter
+# Per-architecture build counters (local state)
+.build-counter-*
 # macOS
 .DS_Store
 **/.DS_Store
