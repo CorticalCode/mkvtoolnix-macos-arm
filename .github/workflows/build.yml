@@ -72,7 +72,9 @@ jobs:
         id: dep-cache
         uses: actions/cache@v4
         with:
-          path: ~/opt/packages
+          path: |
+            ~/opt/packages
+            ~/opt/source
           key: deps-${{ hashFiles('patches/zlib-url-fix.patch', 'patches/qt-version-bump-6.10.2.patch') }}
           restore-keys: |
             deps-
