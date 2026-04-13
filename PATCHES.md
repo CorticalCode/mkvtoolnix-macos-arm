@@ -72,7 +72,7 @@ This is the proper fix — the compiler's own error message suggested it: "inclu
 
 **Applied via:** Upstream build system's own `qt-patches/` mechanism. The `build_package` function in `build.sh` automatically applies patches from a `{package}-patches/` directory after extraction.
 
-**Upstream status:** This is a Qt 6.10.0 bug with newer Apple clang. May be fixed in Qt 6.10.1+.
+**Upstream status:** Fixed in Qt 6.10.2. The identical `arm_acle.h` include was added to the upstream Qt source. This patch has been **retired** as of our Qt 6.10.2 bump -- it is no longer included in the build.
 
 ---
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## v98.0-arm64-b003 (2026-04-13)
+
+Bump Qt from 6.10.0 to 6.10.2.
+
+**Changes:**
+- Qt 6.10.2 fixes UI bugs: progress bar updates, preferences truncation, pane resizing, macOS 26 rendering
+- Removed `qt-patches/001-fix-arm-yield-declaration.patch` -- Qt 6.10.2 includes the same `arm_acle.h` fix upstream, making our patch redundant
+- DMG size unchanged (34.0 MB)
+
+**Active patches (3):**
+- `qt6-cmake-install.patch` -- Qt6 install fix
+- `qt-version-bump-6.10.2.patch` -- Qt version bump
+- `strip-dylibs.patch` -- strip debug symbols
+- `zlib-url-fix.patch` -- dead URL fix
+
+---
+
 ## v98.0-arm64-b002 (2026-04-13)
 
 Strip debug symbols from Qt shared libraries and plugins.
