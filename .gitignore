@@ -7,5 +7,5 @@
 # Claude Code project config (local permissions, memory)
 /
 
-# Build artifacts
-*.dmg
+# Distribution outputs (DMGs)
+dist/
