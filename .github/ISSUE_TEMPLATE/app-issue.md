@@ -6,7 +6,7 @@ labels: app
 
 **Note:** This repo only handles the macOS ARM build. If the issue also
 occurs on the official Windows/Linux builds, it's an upstream MKVToolNix
-bug — please report it at https://gitlab.com/mbunkus/mkvtoolnix/-/issues
+bug — please report it at https://codeberg.org/mbunkus/mkvtoolnix/issues
 
 **macOS version:**
 
