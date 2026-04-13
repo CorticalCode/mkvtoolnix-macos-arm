@@ -1,6 +1,8 @@
-# Private scratch system — branch-specific docs, specs, plans
-# Accessible to all AI assistants (Claude, Gemini, Codex)
+# Multi-agent review scratch system (Claude, Codex, Gemini)
 /
+
+# AI agent configuration (private, backed up to ~// project area)
+
 
 # Claude Code project config (local permissions, memory)
 /
