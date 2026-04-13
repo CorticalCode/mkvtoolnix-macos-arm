@@ -1,5 +1,22 @@
 # Changelog
 
+## v98.0-arm64-b004 (2026-04-13)
+
+Remove unused Qt PrintSupport module. Consolidate specs patches.
+
+**Changes:**
+- Removed Qt PrintSupport module -- zero references in MKVToolNix source
+- Combined zlib URL fix and Qt version bump into single `specs-updates.patch` to resolve patch ordering conflicts
+- DMG: 35.5 MB (138 KB smaller than b003)
+
+**Active patches (4):**
+- `qt6-cmake-install.patch` -- Qt6 install fix
+- `specs-updates.patch` -- Qt 6.10.2 bump + zlib URL fix
+- `remove-printsupport.patch` -- drop unused Qt module
+- `strip-dylibs.patch` -- strip debug symbols
+
+---
+
 ## v98.0-arm64-b003 (2026-04-13)
 
 Bump Qt from 6.10.0 to 6.10.2.
