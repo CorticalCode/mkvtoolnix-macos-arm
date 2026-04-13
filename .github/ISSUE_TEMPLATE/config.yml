@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: MKVToolNix bug (not build-related)
+    url: https://gitlab.com/mbunkus/mkvtoolnix/-/issues
+    about: For bugs in MKVToolNix itself (not specific to this macOS ARM build), report upstream
+  - name: MKVToolNix forum
+    url: https://help.mkvtoolnix.download/
+    about: General MKVToolNix help and discussion
