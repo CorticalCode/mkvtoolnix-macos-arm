@@ -5,7 +5,7 @@
 Bump Qt from 6.10.0 to 6.10.2.
 
 **Changes:**
-- Qt 6.10.2 fixes UI bugs: progress bar updates, preferences truncation, pane resizing, macOS 26 rendering
+- Qt 6.10.2 includes UI bug fixes reported by the community (progress bar updates, preferences truncation, pane resizing, macOS 26 rendering) -- not independently verified by us
 - Removed `qt-patches/001-fix-arm-yield-declaration.patch` -- Qt 6.10.2 includes the same `arm_acle.h` fix upstream, making our patch redundant
 - DMG size unchanged (34.0 MB)
 
