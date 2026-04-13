@@ -124,3 +124,22 @@ jobs:
           NOTES
           )" \
             ~/tmp/compile/MKVToolNix-${VERSION}-macos-arm.dmg
+
+      - name: Create issue on build failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "Build failed: MKVToolNix ${VERSION} (${TAG})" \
+            --label "build" \
+            --body "$(cat <<BODY
+          Automated build failed for MKVToolNix ${VERSION} from tag \`${TAG}\`.
+
+          **Workflow run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          This likely means upstream changes broke one of our patches.
+          Check the workflow logs for the specific error and update patches accordingly.
+          BODY
+          )"
