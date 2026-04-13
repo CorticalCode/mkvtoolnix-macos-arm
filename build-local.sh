@@ -4,6 +4,16 @@ set -e
 SCRIPT_DIR=${0:a:h}
 UPSTREAM_URL="https://codeberg.org/mbunkus/mkvtoolnix.git"
 
+# Detect architecture
+MACHINE_ARCH=$(uname -m)
+if [[ "${MACHINE_ARCH}" == "arm64" ]]; then
+  ARCH_LABEL="arm"
+elif [[ "${MACHINE_ARCH}" == "x86_64" ]]; then
+  ARCH_LABEL="intel"
+else
+  ARCH_LABEL="${MACHINE_ARCH}"
+fi
+
 # Defaults
 TAG=""
 BUILD_MODE="auto"  # auto, full, skip-deps, only
@@ -56,7 +66,7 @@ if [[ -z "${TAG}" ]]; then
 fi
 VERSION=${TAG#release-}
 
-echo "==> Building MKVToolNix ${VERSION} for ARM64"
+echo "==> Building MKVToolNix ${VERSION} for ${MACHINE_ARCH} (${ARCH_LABEL})"
 echo "==> Mode: ${BUILD_MODE}"
 echo "==> Work directory: ${WORK_DIR}"
 
@@ -201,7 +211,7 @@ if [[ -f "${DMG_PATH}" ]]; then
   # Get current git branch name for the label
   BRANCH=$(cd "${SCRIPT_DIR}" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 
-  DMG_NAME="MKVToolNix-${VERSION}-macos-arm-${BRANCH}-b$(printf '%03d' ${BUILD_NUM}).dmg"
+  DMG_NAME="MKVToolNix-${VERSION}-macos-${ARCH_LABEL}-${BRANCH}-b$(printf '%03d' ${BUILD_NUM}).dmg"
   command cp "${DMG_PATH}" "${DIST_DIR}/${DMG_NAME}"
   echo "==> Done!"
   echo "    Build output: ${DMG_PATH}"
