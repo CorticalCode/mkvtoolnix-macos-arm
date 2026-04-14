@@ -32,8 +32,8 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             TAG="${{ github.event.inputs.tag }}"
           else
-            # Find latest upstream release tag
-            TAG=$(git ls-remote --tags --sort=-v:refname \
+            # Find latest upstream release tag (filter ^{} peeled refs)
+            TAG=$(git ls-remote --tags --refs --sort=-v:refname \
               https://codeberg.org/mbunkus/mkvtoolnix.git \
               'refs/tags/release-*' | head -1 | sed 's|.*refs/tags/||')
           fi
@@ -111,7 +111,7 @@ jobs:
             --notes "$(cat <<NOTES
           Unofficial macOS ARM64 build of [MKVToolNix ${VERSION}](https://mkvtoolnix.download/).
 
-          Built from upstream tag \`${TAG}\` with Qt 6.10.2, Boost 1.88.0.
+          Built from upstream tag \`${TAG}\` on macOS ARM64 (Apple Silicon).
 
           **Not signed or notarized.** To open: right-click the app > Open, or run:
           \`\`\`
