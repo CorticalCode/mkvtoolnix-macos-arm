@@ -137,6 +137,24 @@ if [[ "${SPECS_QT_FILE}" != "${EXPECTED_QT_DIR}.tar.xz" ]]; then
 fi
 echo "==> Verified: QTVER=${QTVER} matches specs.sh (${SPECS_QT_FILE})"
 
+# Expected dependency packages (defined here for stale cleanup and proven restore)
+EXPECTED_PACKAGES=(
+  autoconf-2.69
+  automake-1.16.1
+  pkg-config-0.29.2
+  libiconv-1.16
+  cmake-3.31.3
+  libogg-1.3.4
+  libvorbis-1.3.7
+  flac-1.5.0
+  zlib-1.3.1
+  gettext-0.23
+  cmark-0.30.3
+  gmp-6.3.0
+  boost_1_88_0
+  qt-everywhere-src-6.10.2
+)
+
 # Clean ALL stale build directories (not just Qt)
 echo "==> Cleaning stale build directories..."
 for stale_dir in "${WORK_DIR}"/qt-everywhere-src-* "${WORK_DIR}"/boost_* "${WORK_DIR}"/cmake-* "${WORK_DIR}"/gettext-* "${WORK_DIR}"/gmp-* "${WORK_DIR}"/flac-* "${WORK_DIR}"/libiconv-* "${WORK_DIR}"/libogg-* "${WORK_DIR}"/libvorbis-* "${WORK_DIR}"/zlib-* "${WORK_DIR}"/autoconf-* "${WORK_DIR}"/automake-* "${WORK_DIR}"/pkg-config-* "${WORK_DIR}"/cmark-*; do
@@ -157,24 +175,6 @@ for stale_dir in "${WORK_DIR}"/qt-everywhere-src-* "${WORK_DIR}"/boost_* "${WORK
 done
 
 # --- Dependency caching logic ---
-
-# All deps that the full build produces (excluding docbook_xsl which self-caches)
-EXPECTED_PACKAGES=(
-  autoconf-2.69
-  automake-1.16.1
-  pkg-config-0.29.2
-  libiconv-1.16
-  cmake-3.31.3
-  libogg-1.3.4
-  libvorbis-1.3.7
-  flac-1.5.0
-  zlib-1.3.1
-  gettext-0.23
-  cmark-0.30.3
-  gmp-6.3.0
-  boost_1_88_0
-  qt-everywhere-src-6.10.2
-)
 
 function restore_from_proven {
   local proven_dir="${TARGET}/proven"
