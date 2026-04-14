@@ -4,7 +4,7 @@ Living document tracking every modification made to build MKVToolNix on macOS Ap
 
 ## Build status
 
-The build process is under active improvement. A version mismatch bug was discovered on 2026-04-13 where builds b003 and b004 claimed Qt 6.10.2 but were silently built against Qt 6.10.0. Pre-build and post-build verification checks have been added to prevent this. A more resilient build cache architecture is being designed.
+The build process uses a proven cache architecture: dependencies are compiled once, verified, and promoted to a cache. Subsequent builds restore from cache and only rebuild mkvtoolnix. See the "Build script fixes" section below for details.
 
 ## Size progression
 
@@ -14,7 +14,10 @@ The build process is under active improvement. A version mismatch bug was discov
 | b002 (+ strip dylibs) | 34.0 MB | 78.9 MB | 6.10.0 | verified |
 | b003 (+ Qt bump) | 34.0 MB | 78.9 MB | **6.10.0** | RETRACTED — claimed 6.10.2 |
 | b004 (+ no PrintSupport) | 33.9 MB | 78.4 MB | **6.10.0** | RETRACTED — claimed 6.10.2 |
-| b005 (genuine 6.10.2) | pending | pending | 6.10.2 | verified by post-build check |
+| b005 (duplicate dylibs) | 42.8 MB | 101.8 MB | 6.10.2 | duplicate Qt dylibs — retracted |
+| b006 (clean baseline) | 33.9 MB | 78.6 MB | 6.10.2 | verified |
+| b007 (build-cache, full) | 33.9 MB | 78.6 MB | 6.10.2 | verified, full build |
+| b008 (build-cache, restore) | 33.9 MB | 78.5 MB | 6.10.2 | verified, smart restore |
 
 ---
 
