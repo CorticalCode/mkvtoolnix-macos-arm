@@ -194,7 +194,7 @@ done
 # --- Dependency caching logic ---
 
 function restore_from_proven {
-  local proven_dir="${TARGET}/proven"
+  local proven_dir="${TARGET}/proven/${ARCH_LABEL}"
   local restored=0
   local missing=()
 
@@ -217,7 +217,7 @@ function restore_from_proven {
   if [[ -f "${docbook_archive}" ]]; then
     echo "    Restoring docbook-xsl..."
     (cd "${TARGET}" && tar xzf "${docbook_archive}")
-    ((restored++))
+    restored=$((restored + 1))
   else
     echo "    Missing from proven: docbook-xsl"
     missing+=("docbook-xsl")
@@ -232,9 +232,9 @@ function restore_from_proven {
 }
 
 function do_promote {
-  local proven_dir="${TARGET}/proven"
+  local proven_dir="${TARGET}/proven/${ARCH_LABEL}"
   local packages_dir="${TARGET}/packages"
-  local repo_proven="${SCRIPT_DIR}/proven"
+  local repo_proven="${SCRIPT_DIR}/proven/${ARCH_LABEL}"
 
   # Precondition: verification must have passed
   if [[ "${VERIFY_PASSED}" != true ]]; then
@@ -248,30 +248,33 @@ function do_promote {
   # Step 1: Archive current proven to LFS
   local proven_files=(${proven_dir}/*.tar.gz(N))
   if [[ -d "${proven_dir}" ]] && [[ ${#proven_files[@]} -gt 0 ]]; then
-    echo "    Archiving current proven to LFS..."
+    echo "    Archiving current ${ARCH_LABEL} proven to LFS..."
+    mkdir -p "${repo_proven}"
     command cp "${proven_dir}"/*.tar.gz "${repo_proven}/"
-    (cd "${SCRIPT_DIR}" && git add proven/*.tar.gz && git commit -m "archive: proven deps before promotion $(date +%Y-%m-%d)")
+    (cd "${SCRIPT_DIR}" && git add "proven/${ARCH_LABEL}/"*.tar.gz && git commit -m "archive: ${ARCH_LABEL} proven deps before promotion $(date +%Y-%m-%d)")
   fi
 
   # Step 2: Build new proven set in temp directory
-  local proven_new="${TARGET}/proven-new"
+  local proven_new="${TARGET}/proven-${ARCH_LABEL}-new"
   mkdir -p "${proven_new}"
   command cp "${packages_dir}"/*.tar.gz "${proven_new}/"
 
   # Step 3: Atomic swap
   if [[ -d "${proven_dir}" ]]; then
-    command mv "${proven_dir}" "${TARGET}/proven-old"
+    command mv "${proven_dir}" "${TARGET}/proven-${ARCH_LABEL}-old"
   fi
+  mkdir -p "${TARGET}/proven"
   command mv "${proven_new}" "${proven_dir}"
 
   # Step 4: Cleanup old
-  if [[ -d "${TARGET}/proven-old" ]]; then
-    command rm -rf "${TARGET}/proven-old"
+  if [[ -d "${TARGET}/proven-${ARCH_LABEL}-old" ]]; then
+    command rm -rf "${TARGET}/proven-${ARCH_LABEL}-old"
   fi
 
   # Step 5: Update LFS with new proven
+  mkdir -p "${repo_proven}"
   command cp "${proven_dir}"/*.tar.gz "${repo_proven}/"
-  (cd "${SCRIPT_DIR}" && git add proven/*.tar.gz && git commit -m "promote: proven deps $(date +%Y-%m-%d)")
+  (cd "${SCRIPT_DIR}" && git add "proven/${ARCH_LABEL}/"*.tar.gz && git commit -m "promote: ${ARCH_LABEL} proven deps $(date +%Y-%m-%d)")
 
   echo "==> Promotion complete. Proven cache updated."
   echo "    LFS archive committed. Push when ready."
