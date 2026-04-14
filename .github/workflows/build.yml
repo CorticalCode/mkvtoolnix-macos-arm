@@ -113,6 +113,8 @@ jobs:
 
           Built from upstream tag \`${TAG}\` on macOS ARM64 (Apple Silicon).
 
+          **Automated build.** This release was built and published by CI without manual testing. Post-build verification (Qt version, architecture, duplicate dylibs, app size) passed automatically. If you encounter issues, please [report them](https://github.com/${{ github.repository }}/issues).
+
           **Not signed or notarized.** To open: right-click the app > Open, or run:
           \`\`\`
           xattr -cr /Applications/MKVToolNix*.app

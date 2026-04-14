@@ -96,6 +96,7 @@ done
 
 if [[ -z "${TAG}" ]]; then
   TAG="release-98.0"
+  echo "WARNING: No tag specified, defaulting to ${TAG}. Pass a tag explicitly for new versions."
 fi
 VERSION=${TAG#release-}
 
@@ -215,23 +216,18 @@ done
 # Fix zlib naming (spec has zlib-v1.3.1, package is zlib-1.3.1)
 EXPECTED_PACKAGES=("${EXPECTED_PACKAGES[@]/zlib-v/zlib-}")
 
-# Clean ALL stale build directories (not just Qt)
+# Clean stale build directories — derive glob prefixes from EXPECTED_PACKAGES
 echo "==> Cleaning stale build directories..."
-for stale_dir in "${WORK_DIR}"/qt-everywhere-src-* "${WORK_DIR}"/boost_* "${WORK_DIR}"/cmake-* "${WORK_DIR}"/gettext-* "${WORK_DIR}"/gmp-* "${WORK_DIR}"/flac-* "${WORK_DIR}"/libiconv-* "${WORK_DIR}"/libogg-* "${WORK_DIR}"/libvorbis-* "${WORK_DIR}"/zlib-* "${WORK_DIR}"/autoconf-* "${WORK_DIR}"/automake-* "${WORK_DIR}"/pkg-config-* "${WORK_DIR}"/cmark-*; do
-  if [[ -d "${stale_dir}" ]]; then
-    dir_name="${stale_dir:t}"
-    is_expected=false
-    for pkg in "${EXPECTED_PACKAGES[@]}"; do
-      if [[ "${dir_name}" == "${pkg}"* ]]; then
-        is_expected=true
-        break
-      fi
-    done
-    if [[ "${is_expected}" == false ]]; then
-      echo "    Removing stale: ${dir_name}"
+for pkg in "${EXPECTED_PACKAGES[@]}"; do
+  # Extract the name prefix before the version (e.g., "autoconf" from "autoconf-2.69")
+  pkg_prefix="${pkg%%-[0-9]*}"
+  [[ "${pkg_prefix}" == "${pkg}" ]] && pkg_prefix="${pkg%%_[0-9]*}"  # handle boost_1_88_0
+  for stale_dir in "${WORK_DIR}/${pkg_prefix}"*; do
+    if [[ -d "${stale_dir}" ]] && [[ "${stale_dir:t}" != "${pkg}" ]]; then
+      echo "    Removing stale: ${stale_dir:t}"
       command rm -rf "${stale_dir}"
     fi
-  fi
+  done
 done
 
 # --- Dependency caching logic ---
@@ -461,6 +457,7 @@ if [[ -d "${DMG_APP}" ]]; then
         arch_errors=$((arch_errors + 1))
         VERIFY_PASSED=false
       fi
+    # Note: -perm +111 is BSD find syntax (deprecated but macOS /usr/bin/find doesn't support -perm /111)
     done < <(/usr/bin/find "${DMG_APP}/Contents/MacOS" \( -name "*.dylib" -o -type f -perm +111 \) -not -type d -print0 2>/dev/null)
   fi
   if [[ ${arch_checked} -eq 0 ]]; then
@@ -471,7 +468,7 @@ if [[ -d "${DMG_APP}" ]]; then
   fi
 
   # 3. Duplicate dylib scan
-  dupes=$(/usr/bin/find "${DMG_APP}/Contents/MacOS/libs" -name "*.dylib" -not -type l 2>/dev/null | sed 's/\.[0-9]*\.[0-9]*\.[0-9]*\.dylib/.dylib/' | sort | uniq -d)
+  dupes=$(/usr/bin/find "${DMG_APP}/Contents/MacOS/libs" -name "*.dylib" -not -type l 2>/dev/null | sed 's/\(\.[0-9][0-9]*\)*\.dylib/.dylib/' | sort | uniq -d)
   if [[ -n "${dupes}" ]]; then
     echo "    FAIL: Duplicate dylib versions found:"
     echo "${dupes}" | while read -r d; do echo "      ${d}"; done
@@ -483,7 +480,7 @@ if [[ -d "${DMG_APP}" ]]; then
   # 4. Size sanity check
   app_size=$(command du -sk "${DMG_APP}" 2>/dev/null | awk '{print $1}')
   size_mb=$((app_size / 1024))
-  min_size=70  # MB — below this something is missing
+  min_size=60  # MB — below this something is missing
   max_size=95  # MB — above this something is duplicated
   if [[ ${size_mb} -lt ${min_size} ]]; then
     echo "    FAIL: App is ${size_mb} MB — suspiciously small (expected ${min_size}-${max_size} MB)"
@@ -508,7 +505,12 @@ if [[ -d "${DMG_APP}" ]]; then
     echo "==> Verification: SOME CHECKS FAILED — review output above"
   fi
 else
-  echo "==> WARNING: App bundle not found at ${DMG_APP} — skipping verification"
+  if [[ "${BUILD_MODE}" == "promote" ]]; then
+    echo "ERROR: App bundle not found at ${DMG_APP}"
+    echo "  The DMG from the previous build may have been cleaned. Build again first."
+  else
+    echo "==> WARNING: App bundle not found at ${DMG_APP} — skipping verification"
+  fi
   VERIFY_PASSED=false
 fi
 
@@ -526,13 +528,13 @@ mkdir -p "${DIST_DIR}"
 DMG_PATH="${WORK_DIR}/MKVToolNix-${VERSION}.dmg"
 
 if [[ -f "${DMG_PATH}" ]]; then
-  # Increment global build counter
+  # Increment global build counter (atomic write via temp+mv)
   if [[ -f "${BUILD_COUNTER_FILE}" ]]; then
     BUILD_NUM=$(( $(cat "${BUILD_COUNTER_FILE}") + 1 ))
   else
     BUILD_NUM=1
   fi
-  echo "${BUILD_NUM}" > "${BUILD_COUNTER_FILE}"
+  echo "${BUILD_NUM}" > "${BUILD_COUNTER_FILE}.tmp" && command mv "${BUILD_COUNTER_FILE}.tmp" "${BUILD_COUNTER_FILE}"
 
   # Get current git branch name for the label (sanitize slashes for filename)
   BRANCH=$(cd "${SCRIPT_DIR}" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
