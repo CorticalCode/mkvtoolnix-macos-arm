@@ -1,5 +1,6 @@
 #!/bin/zsh
 set -e
+setopt NULL_GLOB  # Unmatched globs expand to nothing instead of aborting
 trap 'echo "ERROR: build-local.sh failed at line ${LINENO} (exit code $?)" >&2' ZERR
 
 SCRIPT_DIR=${0:a:h}
@@ -246,7 +247,7 @@ function do_promote {
   echo "==> Promoting current build to proven cache..."
 
   # Step 1: Archive current proven to LFS
-  local proven_files=(${proven_dir}/*.tar.gz(N))
+  local proven_files=(${proven_dir}/*.tar.gz)
   if [[ -d "${proven_dir}" ]] && [[ ${#proven_files[@]} -gt 0 ]]; then
     echo "    Archiving current ${ARCH_LABEL} proven to LFS..."
     mkdir -p "${repo_proven}"
