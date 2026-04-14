@@ -164,7 +164,7 @@ EXPECTED_PACKAGES=(
   flac-1.5.0
   zlib-1.3.1
   gettext-0.23
-  mtx-build
+  cmark-0.30.3
   gmp-6.3.0
   boost_1_88_0
   qt-everywhere-src-6.10.2
@@ -180,18 +180,42 @@ function check_deps_cached {
   return 0
 }
 
-function restore_deps {
-  echo "==> Restoring ${#EXPECTED_PACKAGES[@]} cached dependency packages to ${TARGET}..."
+function restore_from_proven {
+  local proven_dir="${TARGET}/proven"
+  local restored=0
+  local missing=()
+
+  echo "==> Restoring from proven cache..."
+
   for pkg in "${EXPECTED_PACKAGES[@]}"; do
-    local pkg_file="${PACKAGE_DIR}/${pkg}.tar.gz"
+    local pkg_file="${proven_dir}/${pkg}.tar.gz"
     if [[ -f "${pkg_file}" ]]; then
       echo "    Restoring ${pkg}..."
       (cd "${TARGET}" && tar xzf "${pkg_file}")
+      ((restored++))
+    else
+      echo "    Missing from proven: ${pkg}"
+      missing+=("${pkg}")
     fi
   done
 
-  # docbook_xsl is handled by build.sh itself (checks if directory exists)
-  echo "==> Dependencies restored."
+  # Restore docbook-xsl if archived
+  local docbook_archive="${proven_dir}/docbook-xsl.tar.gz"
+  if [[ -f "${docbook_archive}" ]]; then
+    echo "    Restoring docbook-xsl..."
+    (cd "${TARGET}" && tar xzf "${docbook_archive}")
+    ((restored++))
+  else
+    echo "    Missing from proven: docbook-xsl"
+    missing+=("docbook-xsl")
+  fi
+
+  echo "==> Restored ${restored} packages. Missing: ${#missing[@]}."
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    return 1
+  fi
+  return 0
 }
 
 # Auto-detect mode: check if deps are cached
