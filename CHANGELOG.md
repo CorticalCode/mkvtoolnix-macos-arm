@@ -11,14 +11,16 @@ The build process now includes pre-build and post-build verification, a proven d
 Comprehensive refactor of the build system to prevent stale artifact contamination.
 
 **New features:**
-- Proven cache system: known-good compiled packages stored in `~/opt/proven/`
+- Proven cache system: known-good compiled packages stored per-architecture (`~/opt/proven/arm/`, `~/opt/proven/intel/`)
 - Complete workspace wipe before every build (preserves proven/ and source/)
 - Smart restore: auto-detects proven cache and only rebuilds mkvtoolnix when all deps are available
 - Comprehensive post-build verification: Qt version, architecture of all binaries/dylibs, duplicate dylib scan, size sanity check, bundle inventory
 - Atomic promotion: archive proven to LFS, directory-swap replacement (no empty state on interruption)
 - Stale directory cleanup for all dependencies, not just Qt
 - DocBook XSL included in cache flow
-- cmark package renamed from unversioned `mtx-build` to `cmark-0.30.3`
+- EXPECTED_PACKAGES derived dynamically from specs.sh (single source of truth)
+- Build log tee'd to timestamped file, build report with summary
+- ERR trap prints line number on failures
 
 **Build flags:**
 - `./build-local.sh release-98.0` — smart build (wipe, restore from proven, build missing)

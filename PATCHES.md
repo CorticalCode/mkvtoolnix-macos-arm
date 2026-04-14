@@ -116,7 +116,7 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 ## Build script fixes (in `build-local.sh`)
 
-**Proven cache architecture:** Compiled dependency packages are stored in a proven cache (`~/opt/proven/`). Each build wipes the workspace (everything under `~/opt/` except `proven/` and `source/`), restores from the proven cache, and only builds what's missing. If all deps are available, only mkvtoolnix is rebuilt (minutes instead of hours). A full rebuild from source is available with `--full`.
+**Proven cache architecture:** Compiled dependency packages are stored in an architecture-specific proven cache (`~/opt/proven/arm/` or `~/opt/proven/intel/`). Each build wipes the workspace (everything under `~/opt/` except `proven/` and `source/`), restores from the proven cache for the current architecture, and only builds what's missing. If all deps are available, only mkvtoolnix is rebuilt (minutes instead of hours). A full rebuild from source is available with `--full`.
 
 **Promotion workflow:** After a successful build and manual testing, `--promote` archives the current proven cache to Git LFS, atomically swaps in the new packages, and commits. Uses directory-swap for atomicity — interruption at any point leaves either old or new proven intact.
 
@@ -124,11 +124,15 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 **Pre-build verification:** QTVER/specs.sh consistency check (already existed), stale build directory cleanup for all 14 dependencies (extended from Qt-only).
 
-**cmark package rename:** Upstream names the cmark package `mtx-build.tar.gz`. Renamed to `cmark-0.30.3.tar.gz` after build so version bumps invalidate the cache.
+**EXPECTED_PACKAGES derived from specs.sh:** Package names are extracted dynamically from upstream's `spec_*` variables after sourcing specs.sh. Fails fast if any spec variable is missing (catches upstream renames). Eliminates version drift between specs.sh and the build script.
+
+**cmark package rename:** Upstream names the cmark package `mtx-build.tar.gz`. Renamed to versioned `cmark-{version}.tar.gz` after build so version bumps invalidate the cache.
 
 **DocBook XSL in cache:** Archived and restored alongside compiled packages.
 
-**`command cp` instead of `cp`:** macOS zsh aliases `cp` to `cp -i` (interactive). `command cp` bypasses the alias.
+**Error handling:** ERR trap prints line number and exit code on any command failure. Build output tee'd to timestamped log file. Build report with summary written after each build. Patch application distinguishes "already applied" from "genuinely broken."
+
+**`command cp` / `/usr/bin/find`:** macOS zsh aliases `cp` to `cp -i` and may alias `find` to GNU find. `command cp` and `/usr/bin/find` bypass aliases.
 
 **`git checkout -- .` before patching:** Ensures clean slate on re-runs.
 
