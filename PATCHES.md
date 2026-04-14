@@ -67,7 +67,7 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 **Problem:** Qt 6.10.0 has a compilation bug on ARM (`__yield` without `arm_acle.h` include) and community-reported UI issues (progress bar, preferences truncation, pane resizing, macOS 26 rendering).
 
-**Fix:** Bump Qt from 6.10.0 to 6.10.2 with updated download URL and SHA256 checksum. Qt 6.10.2 includes the `arm_acle.h` fix upstream, eliminating the need for our separate Qt source patch.
+**Fix:** Bump Qt from 6.10.0 to 6.10.2 with updated download URL and SHA256 checksum. Note: Qt 6.10.2 does NOT include the `arm_acle.h` fix — the Qt source patch is still required (see section 5).
 
 ---
 
@@ -138,14 +138,25 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 ---
 
+## Qt source patches (`patches/qt-patches/`)
+
+### 5. ARM `__yield` declaration (`qt-patches/001-fix-arm-yield-declaration.patch`)
+
+**File patched:** `qtbase/src/corelib/thread/qyieldcpu.h` (applied to Qt source during extraction)
+
+**Problem:** Qt6's `qyieldcpu.h` calls `__yield()` on ARM via `__has_builtin(__yield)`, but clang requires `<arm_acle.h>` to be included for the declaration. Without it, clang produces `-Werror,-Wimplicit-function-declaration`.
+
+**Fix:** Add `#include <arm_acle.h>` guarded by `Q_PROCESSOR_ARM` and `__has_include`.
+
+**History:** This patch was incorrectly retired on 2026-04-13 based on reports that Qt 6.10.2 included the fix upstream. Inspection of the actual Qt 6.10.2 source confirmed the fix is NOT present. The retirement went undetected because the proven cache contained pre-compiled Qt that was built WITH the patch — a smart-restore build never recompiled Qt, masking the issue. A `--full` rebuild on 2026-04-14 exposed the missing fix. The patch was restored.
+
+**Lesson:** Never retire a patch based on release notes alone. Always verify the fix in the actual upstream source, and always test with `--full` (not smart-restore) to confirm.
+
+---
+
 ## Retired patches
 
-### Qt6 ARM `__yield` declaration (formerly `patches/qt-patches/001-fix-arm-yield-declaration.patch`)
-
-**Retired:** 2026-04-13
-**Reason:** Fixed upstream in Qt 6.10.2. The identical `arm_acle.h` include was added to the Qt source.
-
-**Original problem:** Qt6's `qyieldcpu.h` called `__yield()` on ARM without including `<arm_acle.h>`. Apple clang 21 treated this as `-Werror`. Qt's Bootstrap target ignored environment `CXXFLAGS`, so flag workarounds didn't reach it. Patching the Qt source directly was the proper fix.
+(None currently.)
 
 ---
 
