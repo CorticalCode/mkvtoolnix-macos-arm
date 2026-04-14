@@ -1,10 +1,10 @@
 # Build Patches — What, Why, and How
 
-Living document tracking every modification made to build MKVToolNix on macOS Apple Silicon, the problems encountered, and how they were resolved.
+Living document tracking every modification made to build MKVToolNix on macOS (Apple Silicon and Intel), the problems encountered, and how they were resolved.
 
 ## Build status
 
-The build process uses a proven cache architecture: dependencies are compiled once, verified, and promoted to a cache. Subsequent builds restore from cache and only rebuild mkvtoolnix. See the "Build script fixes" section below for details.
+Current release: **v98.0-b2026.04.1** (Apple Silicon + Intel). The build process uses a proven cache architecture with per-architecture storage: dependencies are compiled once, verified, and promoted to a cache. Subsequent builds restore from cache and only rebuild mkvtoolnix. See the "Build script fixes" section below for details.
 
 ## Size progression
 
@@ -23,7 +23,7 @@ The build process uses a proven cache architecture: dependencies are compiled on
 
 ---
 
-## Active patches (4)
+## Active patches (5 build patches + 1 Qt source patch)
 
 ### 1. Qt6 cmake install (`patches/qt6-cmake-install.patch`)
 
@@ -137,7 +137,7 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 **Promotion workflow:** After a successful build and manual testing, `--promote` archives the current proven cache to Git LFS, atomically swaps in the new packages, and commits. Uses directory-swap for atomicity — interruption at any point leaves either old or new proven intact.
 
-**Post-build verification:** Checks Qt version in binary, architecture of all binaries and dylibs, duplicate dylib scan, size sanity (70-95 MB range), and bundle inventory. Promotion is blocked if verification fails.
+**Post-build verification:** Checks Qt version in binary, architecture of all binaries and dylibs, duplicate dylib scan, size sanity (60-95 MB range), and bundle inventory. Promotion is blocked if verification fails.
 
 **Pre-build verification:** QTVER/specs.sh consistency check (already existed), stale build directory cleanup for all 14 dependencies (extended from Qt-only).
 

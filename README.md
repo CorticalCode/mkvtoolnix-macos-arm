@@ -1,6 +1,6 @@
 # mkvtoolnix-gui-macos
 
-Unofficial macOS Apple Silicon (ARM64) builds of [MKVToolNix GUI](https://mkvtoolnix.download/).
+Unofficial macOS builds of [MKVToolNix GUI](https://mkvtoolnix.download/) for Apple Silicon and Intel.
 
 The MKVToolNix developer no longer provides macOS binaries. The CLI tools (`mkvmerge`, `mkvextract`, `mkvpropedit`, `mkvinfo`) are available via `brew install mkvtoolnix`, but the GUI is not. This repo builds the full MKVToolNix GUI application from the official source.
 
@@ -8,9 +8,12 @@ The MKVToolNix developer no longer provides macOS binaries. The CLI tools (`mkvm
 
 ## Download
 
-Grab the latest `.dmg` from [Releases](../../releases).
+Grab the latest `.dmg` for your architecture from [Releases](../../releases):
 
-**Note:** The DMG is not signed or notarized. macOS will block it by default.
+- **Apple Silicon** (M1/M2/M3/M4): `MKVToolNix-{version}-macos-arm.dmg`
+- **Intel**: `MKVToolNix-{version}-macos-intel.dmg`
+
+**Note:** The DMGs are not signed or notarized. macOS will block them by default.
 To open: right-click the app > Open, or run:
 ```
 xattr -cr /Applications/MKVToolNix*.app

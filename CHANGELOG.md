@@ -1,116 +1,66 @@
 # Changelog
 
-## Correction Notice (2026-04-13)
+## v98.0-b2026.04.1 (2026-04-14) — Current Release
 
-Builds b003 and b004 claimed Qt 6.10.2 but were built against Qt 6.10.0 due to a version mismatch bug. A stale Qt 6.10.0 build directory masked the error on ARM. The bug was discovered when attempting an Intel build on a clean machine. Releases r2 and r3 have been removed. See the b003/b004 entries below for details.
+First combined Apple Silicon + Intel release with optimized builds.
 
-The build process now includes pre-build and post-build verification, a proven dependency cache, and comprehensive workspace management to prevent this from happening again.
+**Downloads:**
+- Apple Silicon (arm64): 72 MB app, 31.9 MB DMG
+- Intel (x86_64): 86.6 MB app, 39 MB DMG
 
-## Build Optimization (2026-04-14)
+**Built with:** Qt 6.10.2, Boost 1.88.0, macOS 13+ deployment target.
 
-Compiler and linker optimization flags for smaller, faster binaries.
+**Active patches (6):**
+- `qt6-cmake-install.patch` -- Qt6 cmake install fix
+- `specs-updates.patch` -- Qt 6.10.2 bump + zlib URL fix
+- `remove-printsupport.patch` -- drop unused Qt module
+- `strip-dylibs.patch` -- strip debug symbols from dylibs
+- `cmark-release-build.patch` -- CMAKE_BUILD_TYPE=Release for cmark
+- `qt-patches/001-fix-arm-yield-declaration.patch` -- ARM arm_acle.h include for Qt
 
-**Changes:**
-- Added `-O2` to CFLAGS/CXXFLAGS — autotools deps (Boost, FLAC, libogg, etc.) were building at `-O0`
+**Build system improvements:**
+- Proven dependency cache with per-architecture storage (Apple Silicon / Intel)
+- Compiler optimization (-O2) and linker dead-stripping for all dependencies
+- Comprehensive post-build verification (Qt version, architecture, duplicate dylibs, size)
+- Build logging, reporting, and error trapping
+- Dynamic EXPECTED_PACKAGES derivation from specs.sh
+
+**Note on earlier releases:** During development, multiple intermediate releases (r1 through r5 for ARM, r1 for Intel) were published and subsequently pulled as the build process was refined and optimized. Only this final verified release is published. Previous builds are available on request.
+
+---
+
+## Development History (2026-04-13 to 2026-04-14)
+
+### Build optimization (2026-04-14)
+
+- Added `-O2` to CFLAGS/CXXFLAGS — autotools deps were building at `-O0`
 - Added `-Wl,-dead_strip` to LDFLAGS — removes unreachable code at link time
 - Added `-DCMAKE_BUILD_TYPE=Release` to cmark build
 - Restored `qt-patches/001-fix-arm-yield-declaration.patch` — Qt 6.10.2 does NOT include the arm_acle.h fix (was incorrectly retired; exposed by `--full` rebuild)
+- Size impact: App 78.5 -> 72.0 MB (8%), DMG 33.9 -> 31.9 MB (6%)
 
-**Size impact:** App 78.5 -> 72.0 MB (8%), DMG 33.9 -> 31.9 MB (6%)
+### Script hardening (2026-04-14)
 
----
+- 5-reviewer audit (Claude, Gemini, ChatGPT) identified 33 issues
+- All 7 P1 and 14 P2 issues fixed: set -e safety, NULL_GLOB guards, alias isolation, clone tag verification, promote validation, verification hardening
+- Shell interpreter guard, improved error trapping, INT/TERM signal handling
 
-## Build Cache Architecture (2026-04-14)
+### Build cache architecture (2026-04-14)
 
-Comprehensive refactor of the build system to prevent stale artifact contamination.
+- Proven cache system with per-architecture storage
+- Complete workspace wipe before every build
+- Smart restore: builds only mkvtoolnix when all deps are cached (~15 min vs ~1-3 hrs)
+- Atomic promotion with Git LFS archiving
+- Comprehensive post-build verification
 
-**New features:**
-- Proven cache system: known-good compiled packages stored per-architecture (`~/opt/proven/arm/`, `~/opt/proven/intel/`)
-- Complete workspace wipe before every build (preserves proven/ and source/)
-- Smart restore: auto-detects proven cache and only rebuilds mkvtoolnix when all deps are available
-- Comprehensive post-build verification: Qt version, architecture of all binaries/dylibs, duplicate dylib scan, size sanity check, bundle inventory
-- Atomic promotion: archive proven to LFS, directory-swap replacement (no empty state on interruption)
-- Stale directory cleanup for all dependencies, not just Qt
-- DocBook XSL included in cache flow
-- EXPECTED_PACKAGES derived dynamically from specs.sh (single source of truth)
-- Build log tee'd to timestamped file, build report with summary
-- ERR trap prints line number on failures
+### Qt version mismatch bug (2026-04-13)
 
-**Build flags:**
-- `./build-local.sh release-98.0` — smart build (wipe, restore from proven, build missing)
-- `./build-local.sh release-98.0 --full` — force full rebuild from source
-- `./build-local.sh release-98.0 --promote` — promote current build to proven cache
+Builds b003 and b004 claimed Qt 6.10.2 but were built against Qt 6.10.0 due to a QTVER mismatch. A stale Qt 6.10.0 build directory masked the error on ARM. Discovered when the Intel build (clean machine) failed correctly. Root cause: Qt version specified in multiple locations with no validation. Fixed with pre-build verification and workspace wipe.
 
----
+### Initial builds (2026-04-13)
 
-## v98.0-arm64-b005 (2026-04-13)
-
-Genuine Qt 6.10.2 build with version verification.
-
-**Changes:**
-- Fixed QTVER mismatch — config.local.sh now sets QTVER=6.10.2 to match specs-updates.patch
-- Added pre-build verification: fails fast if QTVER doesn't match specs.sh
-- Added stale directory cleanup: removes old Qt build directories before extraction
-- Added post-build verification: confirms Qt version in binary and architecture
-- Cleaned stale Qt 6.10.0 artifacts from build environment
-
-**Verification output:**
-- Pre-build: QTVER=6.10.2 matches specs.sh
-- Post-build: binary links Qt 6.10.2 (confirmed)
-- Architecture: arm64
-
-**Active patches (4):**
-- `qt6-cmake-install.patch` -- Qt6 install fix
-- `specs-updates.patch` -- Qt 6.10.2 bump + zlib URL fix
-- `remove-printsupport.patch` -- drop unused Qt module
-- `strip-dylibs.patch` -- strip debug symbols
-
----
-
-## v98.0-arm64-b004 (2026-04-13) — RETRACTED
-
-Remove unused Qt PrintSupport module. Consolidate specs patches.
-
-**Note:** This build claimed Qt 6.10.2 but was built against Qt 6.10.0 due to QTVER mismatch. The stale Qt 6.10.0 build directory was used instead of the 6.10.2 source. Release r3 was removed.
-
----
-
-## v98.0-arm64-b003 (2026-04-13) — RETRACTED
-
-Bump Qt from 6.10.0 to 6.10.2.
-
-**Note:** This build claimed Qt 6.10.2 but was built against Qt 6.10.0 due to QTVER mismatch. A stale Qt 6.10.0 directory in the compile workspace masked the error. Release r2 was removed.
-
-**Root cause:** Our specs-updates.patch correctly changed the Qt download URL and checksum to 6.10.2, but upstream's config.sh still set QTVER=6.10.0. The build_qt function uses QTVER for the directory name. On ARM, the old 6.10.0 directory still existed from the first build, so the cd succeeded — silently building from old source. On Intel (clean machine), there was no stale directory and the build correctly failed.
-
----
-
-## v98.0-arm64-b002 (2026-04-13)
-
-Strip debug symbols from Qt shared libraries and plugins.
-
-**Size impact:**
-- Uncompressed app: 84.8 MB -> 78.9 MB (6 MB saved, 7% reduction)
-- DMG: 34.9 MB -> 34.0 MB (0.9 MB saved, compressed masks most of the gain)
-
-**Patch added:**
-- `strip-dylibs.patch` -- strip -x on all dylibs after library path fixup
-
----
-
-## v98.0-arm64-b001 (2026-04-13)
-
-First successful build of MKVToolNix 98.0 for macOS Apple Silicon.
-
-**Built against:**
-- MKVToolNix 98.0 (upstream tag `release-98.0`)
-- Qt 6.10.0
-- Boost 1.88.0
-- macOS 26.4.1, Apple clang 21.0.0, Xcode
-- ARM64 (Apple Silicon), deployment target macOS 13+
-
-**Patches applied:**
-- `qt6-cmake-install.patch` -- fix Qt6 install step in build.sh
-- `zlib-url-fix.patch` -- fix dead zlib download URL
-- `qt-patches/001-fix-arm-yield-declaration.patch` -- fix Qt6 ARM `__yield` compilation error
-- `config.local.sh` -- disable code signing, set 12 build threads
+- b001: First successful ARM build (Qt 6.10.0, 84.8 MB app)
+- b002: Added debug symbol stripping (78.9 MB app)
+- b003-b004: RETRACTED — Qt version mismatch
+- b005: Duplicate dylib bug (101.8 MB app) — retracted
+- b006-b008: Clean builds with build cache architecture (78.5 MB app)
