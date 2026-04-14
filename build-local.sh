@@ -379,13 +379,13 @@ if [[ -d "${DMG_APP}" ]]; then
       arch_errors=$((arch_errors + 1))
       VERIFY_PASSED=false
     fi
-  done < <(find "${DMG_APP}/Contents/MacOS" \( -name "*.dylib" -o -type f -perm +111 \) -not -type d -print0 2>/dev/null)
+  done < <(/usr/bin/find "${DMG_APP}/Contents/MacOS" \( -name "*.dylib" -o -type f -perm +111 \) -not -type d -print0 2>/dev/null)
   if [[ ${arch_errors} -eq 0 ]]; then
     echo "    PASS: All binaries and dylibs are ${expected_arch}"
   fi
 
   # 3. Duplicate dylib scan
-  dupes=$(find "${DMG_APP}/Contents/MacOS/libs" -name "*.dylib" -not -type l 2>/dev/null | sed 's/\.[0-9]*\.[0-9]*\.[0-9]*\.dylib/.dylib/' | sort | uniq -d)
+  dupes=$(/usr/bin/find "${DMG_APP}/Contents/MacOS/libs" -name "*.dylib" -not -type l 2>/dev/null | sed 's/\.[0-9]*\.[0-9]*\.[0-9]*\.dylib/.dylib/' | sort | uniq -d)
   if [[ -n "${dupes}" ]]; then
     echo "    FAIL: Duplicate dylib versions found:"
     echo "${dupes}" | while read -r d; do echo "      ${d}"; done
@@ -395,7 +395,7 @@ if [[ -d "${DMG_APP}" ]]; then
   fi
 
   # 4. Size sanity check
-  app_size=$(du -sk "${DMG_APP}" 2>/dev/null | awk '{print $1}')
+  app_size=$(command du -sk "${DMG_APP}" 2>/dev/null | awk '{print $1}')
   size_mb=$((app_size / 1024))
   min_size=70  # MB — below this something is missing
   max_size=95  # MB — above this something is duplicated
@@ -411,7 +411,7 @@ if [[ -d "${DMG_APP}" ]]; then
 
   # 5. Bundle inventory
   echo "    --- Bundle inventory ---"
-  find "${DMG_APP}/Contents/MacOS/libs" -name "*.dylib" -not -type l 2>/dev/null | while read -r lib; do
+  /usr/bin/find "${DMG_APP}/Contents/MacOS/libs" -name "*.dylib" -not -type l 2>/dev/null | while read -r lib; do
     echo "    $(basename "${lib}")"
   done
 
