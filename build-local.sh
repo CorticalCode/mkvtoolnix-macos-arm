@@ -35,8 +35,7 @@ function wipe_workspace {
 
 # Defaults
 TAG=""
-BUILD_MODE="auto"  # auto, full, skip-deps, only
-BUILD_TARGETS=()
+BUILD_MODE="auto"  # auto, full, promote
 WORK_DIR=${WORK_DIR:-$HOME/tmp/compile}
 TARGET=${TARGET:-$HOME/opt}
 PACKAGE_DIR="${TARGET}/packages"
@@ -48,14 +47,14 @@ Usage: build-local.sh [options] <tag>
   tag               Upstream release tag (e.g. release-98.0)
 
 Options:
-  --full            Force full rebuild of all dependencies + mkvtoolnix
-  --skip-deps       Restore cached deps, only build mkvtoolnix
-  --only <targets>  Build only specific targets (e.g. --only qt mkvtoolnix)
+  --full            Force full rebuild from source (proven cache untouched)
+  --promote         Archive proven to LFS, replace with current build
   --help            Show this help
 
-Default behavior (auto):
-  If all dependency packages are cached in ~/opt/packages/,
-  restores them and only builds mkvtoolnix. Otherwise does a full build.
+Default behavior:
+  Wipes workspace, restores dependencies from proven cache,
+  builds only what's missing + mkvtoolnix. If no proven cache
+  exists, does a full build from source.
 
 Environment:
   WORK_DIR          Compile workspace (default: ~/tmp/compile)
@@ -68,11 +67,7 @@ USAGE
 while [[ -n $1 ]]; do
   case $1 in
     --full)       BUILD_MODE="full" ;;
-    --skip-deps)  BUILD_MODE="skip-deps" ;;
-    --only)       BUILD_MODE="only"; shift
-                  while [[ -n $1 ]] && [[ $1 != --* ]]; do
-                    BUILD_TARGETS+=("$1"); shift
-                  done; continue ;;
+    --promote)    BUILD_MODE="promote" ;;
     --help|-h)    usage ;;
     -*)           echo "Unknown option: $1"; usage ;;
     *)            TAG="$1" ;;
@@ -170,16 +165,6 @@ EXPECTED_PACKAGES=(
   qt-everywhere-src-6.10.2
 )
 
-function check_deps_cached {
-  for pkg in "${EXPECTED_PACKAGES[@]}"; do
-    if [[ ! -f "${PACKAGE_DIR}/${pkg}.tar.gz" ]]; then
-      echo "    Missing: ${pkg}"
-      return 1
-    fi
-  done
-  return 0
-}
-
 function restore_from_proven {
   local proven_dir="${TARGET}/proven"
   local restored=0
@@ -218,43 +203,25 @@ function restore_from_proven {
   return 0
 }
 
-# Auto-detect mode: check if deps are cached
-if [[ "${BUILD_MODE}" == "auto" ]]; then
-  echo "==> Checking for cached dependencies..."
-  if check_deps_cached; then
-    echo "==> All dependencies cached. Skipping dep builds."
-    BUILD_MODE="skip-deps"
-  else
-    echo "==> Some dependencies missing. Doing full build."
-    BUILD_MODE="full"
-  fi
-fi
-
 # --- Build ---
 
 cd "${CLONE_DIR}/packaging/macos"
 
 case "${BUILD_MODE}" in
   full)
-    echo "==> Full build (all dependencies + mkvtoolnix)..."
+    echo "==> Full build (all dependencies + mkvtoolnix from source)..."
+    wipe_workspace
     ./build.sh
     ;;
-  skip-deps)
-    restore_deps
-    echo "==> Building mkvtoolnix only..."
-    ./build.sh mkvtoolnix
-    ;;
-  only)
-    if [[ ${#BUILD_TARGETS[@]} -eq 0 ]]; then
-      echo "Error: --only requires at least one target"
-      exit 1
+  auto|"")
+    wipe_workspace
+    if restore_from_proven; then
+      echo "==> All dependencies restored from proven. Building mkvtoolnix only..."
+      ./build.sh mkvtoolnix
+    else
+      echo "==> Some dependencies missing from proven. Doing full build..."
+      ./build.sh
     fi
-    # Restore deps first so build targets have their dependencies available
-    if check_deps_cached; then
-      restore_deps
-    fi
-    echo "==> Building: ${BUILD_TARGETS[*]}..."
-    ./build.sh "${BUILD_TARGETS[@]}"
     ;;
 esac
 
