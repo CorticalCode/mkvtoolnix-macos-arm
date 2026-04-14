@@ -159,9 +159,16 @@ fi
 # --- Pre-build verification ---
 
 # Source the config files the same way build.sh does, to get QTVER
+# Save user overrides — config.sh unconditionally exports TARGET and other vars
+_SAVED_TARGET="${TARGET}"
+_SAVED_WORK_DIR="${WORK_DIR}"
 source "${CLONE_DIR}/packaging/macos/config.sh"
 test -f "${CLONE_DIR}/packaging/macos/config.local.sh" && source "${CLONE_DIR}/packaging/macos/config.local.sh"
 source "${CLONE_DIR}/packaging/macos/specs.sh"
+# Restore user overrides that config.sh may have clobbered
+TARGET="${_SAVED_TARGET}"
+WORK_DIR="${_SAVED_WORK_DIR}"
+echo "==> Config: QTVER=${QTVER}, TARGET=${TARGET}, WORK_DIR=${WORK_DIR}"
 
 # Verify QTVER matches what specs.sh will download
 SPECS_QT_FILE="${spec_qt[1]}"
@@ -267,7 +274,21 @@ function do_promote {
     exit 1
   fi
 
-  echo "==> Promoting current build to proven cache..."
+  # Precondition: packages must contain all expected deps + docbook-xsl
+  local missing_pkgs=()
+  for pkg in "${EXPECTED_PACKAGES[@]}"; do
+    [[ -f "${packages_dir}/${pkg}.tar.gz" ]] || missing_pkgs+=("${pkg}")
+  done
+  [[ -f "${packages_dir}/docbook-xsl.tar.gz" ]] || missing_pkgs+=("docbook-xsl")
+  if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
+    echo "ERROR: Cannot promote — packages/ is incomplete (${#missing_pkgs[@]} missing)."
+    echo "  Missing: ${missing_pkgs[*]}"
+    echo "  This can happen after a smart-restore build (only mkvtoolnix was rebuilt)."
+    echo "  Run a --full build first, then promote."
+    exit 1
+  fi
+
+  echo "==> Promoting ${#EXPECTED_PACKAGES[@]} packages + docbook-xsl (${ARCH_LABEL})..."
 
   # Step 1: Archive current proven to LFS
   local proven_files=(${proven_dir}/*.tar.gz)
@@ -503,8 +524,10 @@ if [[ -f "${DMG_PATH}" ]]; then
   fi
   echo "${BUILD_NUM}" > "${BUILD_COUNTER_FILE}"
 
-  # Get current git branch name for the label
+  # Get current git branch name for the label (sanitize slashes for filename)
   BRANCH=$(cd "${SCRIPT_DIR}" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+  [[ "${BRANCH}" == "HEAD" ]] && BRANCH=$(cd "${SCRIPT_DIR}" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+  BRANCH="${BRANCH//\//-}"
 
   DMG_NAME="MKVToolNix-${VERSION}-macos-${ARCH_LABEL}-${BRANCH}-b$(printf '%03d' ${BUILD_NUM}).dmg"
   command cp "${DMG_PATH}" "${DIST_DIR}/${DMG_NAME}"
