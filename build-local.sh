@@ -246,7 +246,8 @@ function do_promote {
   echo "==> Promoting current build to proven cache..."
 
   # Step 1: Archive current proven to LFS
-  if [[ -d "${proven_dir}" ]] && ls "${proven_dir}"/*.tar.gz &>/dev/null; then
+  local proven_files=(${proven_dir}/*.tar.gz(N))
+  if [[ -d "${proven_dir}" ]] && [[ ${#proven_files[@]} -gt 0 ]]; then
     echo "    Archiving current proven to LFS..."
     command cp "${proven_dir}"/*.tar.gz "${repo_proven}/"
     (cd "${SCRIPT_DIR}" && git add proven/*.tar.gz && git commit -m "archive: proven deps before promotion $(date +%Y-%m-%d)")
