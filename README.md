@@ -13,8 +13,7 @@ Grab the latest `.dmg` for your architecture from [Releases](../../releases):
 - **Apple Silicon** (M1/M2/M3/M4): `MKVToolNix-{version}-macos-arm.dmg`
 - **Intel**: `MKVToolNix-{version}-macos-intel.dmg`
 
-**Note:** The DMGs are not signed or notarized. macOS will block them by default.
-To open: right-click the app > Open, or run:
+**Note:** The DMGs are ad-hoc signed but not notarized. On macOS Sequoia and newer, you may need to allow the app in System Settings > Privacy & Security, or run:
 ```
 xattr -cr /Applications/MKVToolNix*.app
 ```
@@ -36,7 +35,7 @@ Use `--full` to force a complete rebuild from source. See [docs/proven-cache.md]
 ## What this repo contains
 
 - `build-local.sh` -- clones upstream source, applies patches, runs the build
-- `config/config.local.sh` -- config overlay (disables code signing)
+- `config/config.local.sh` -- config overlay (ad-hoc signing, optimization flags)
 - `patches/` -- fixes for the upstream build scripts
 - `.github/workflows/build.yml` -- CI that builds and publishes DMGs
 

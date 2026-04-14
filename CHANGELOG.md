@@ -19,6 +19,7 @@ First combined Apple Silicon + Intel release with optimized builds.
 - `qt-patches/001-fix-arm-yield-declaration.patch` -- ARM arm_acle.h include for Qt
 
 **Build system improvements:**
+- Ad-hoc code signing for macOS Sequoia 15.1+ compatibility
 - Proven dependency cache with per-architecture storage (Apple Silicon / Intel)
 - Compiler optimization (-O2) and linker dead-stripping for all dependencies
 - Comprehensive post-build verification (Qt version, architecture, duplicate dylibs, size)

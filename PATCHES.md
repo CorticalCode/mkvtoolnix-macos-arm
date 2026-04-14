@@ -121,7 +121,7 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 **Not a patch** -- a config file sourced by the upstream build system.
 
-- `SIGNATURE_IDENTITY=""` -- disables code signing (no Apple Developer cert)
+- `SIGNATURE_IDENTITY="-"` -- ad-hoc code signing (required for macOS Sequoia 15.1+; no Apple Developer cert needed)
 - `DRAKETHREADS=12` -- parallel build threads (default is 4, machine has 14 cores)
 - `CFLAGS += -O2` -- standard release optimization (upstream sets no -O flag)
 - `CXXFLAGS += -O2` -- same for C++
