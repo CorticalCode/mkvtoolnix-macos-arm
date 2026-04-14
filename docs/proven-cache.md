@@ -15,13 +15,25 @@ The cache is per-architecture — Apple Silicon (arm64) and Intel (x86_64) have 
 
 ## Populating the cache
 
-After a successful build and manual testing:
+### From Git LFS (recommended for most users)
+
+The repository includes pre-built dependency caches via Git LFS. After cloning, copy them to your local cache — see "Restoring from Git LFS" below. This skips the multi-hour dependency build entirely.
+
+### From a full build (if you need to build deps yourself)
+
+After a successful `--full` build:
 
 ```sh
-./build-local.sh release-98.0 --promote
+# Copy the built packages to your local proven cache
+mkdir -p ~/opt/proven/arm    # or ~/opt/proven/intel
+cp ~/opt/packages/*.tar.gz ~/opt/proven/arm/
 ```
 
-This runs post-build verification (Qt version, architecture, duplicate libraries, app size), then copies the compiled packages to the proven cache. If verification fails, promotion is blocked.
+Future builds will restore from this cache automatically.
+
+### The `--promote` flag (maintainers only)
+
+The `--promote` flag is a maintainer operation that archives the proven cache to Git LFS and commits it to the repository. **Regular users should not use `--promote`** — it modifies the git history and would create conflicts when pulling upstream updates. Use the manual copy method above instead.
 
 ## What's in the cache
 
