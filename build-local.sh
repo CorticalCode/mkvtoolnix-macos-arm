@@ -39,6 +39,7 @@ BUILD_MODE="auto"  # auto, full, promote
 WORK_DIR=${WORK_DIR:-$HOME/tmp/compile}
 TARGET=${TARGET:-$HOME/opt}
 PACKAGE_DIR="${TARGET}/packages"
+VERIFY_PASSED=false
 
 function usage {
   cat <<'USAGE'
@@ -203,6 +204,51 @@ function restore_from_proven {
   return 0
 }
 
+function do_promote {
+  local proven_dir="${TARGET}/proven"
+  local packages_dir="${TARGET}/packages"
+  local repo_proven="${SCRIPT_DIR}/proven"
+
+  # Precondition: verification must have passed
+  if [[ "${VERIFY_PASSED}" != true ]]; then
+    echo "ERROR: Cannot promote — post-build verification did not pass."
+    echo "       Build and verify first, then promote."
+    exit 1
+  fi
+
+  echo "==> Promoting current build to proven cache..."
+
+  # Step 1: Archive current proven to LFS
+  if [[ -d "${proven_dir}" ]] && ls "${proven_dir}"/*.tar.gz &>/dev/null; then
+    echo "    Archiving current proven to LFS..."
+    command cp "${proven_dir}"/*.tar.gz "${repo_proven}/"
+    (cd "${SCRIPT_DIR}" && git add proven/*.tar.gz && git commit -m "archive: proven deps before promotion $(date +%Y-%m-%d)")
+  fi
+
+  # Step 2: Build new proven set in temp directory
+  local proven_new="${TARGET}/proven-new"
+  mkdir -p "${proven_new}"
+  command cp "${packages_dir}"/*.tar.gz "${proven_new}/"
+
+  # Step 3: Atomic swap
+  if [[ -d "${proven_dir}" ]]; then
+    command mv "${proven_dir}" "${TARGET}/proven-old"
+  fi
+  command mv "${proven_new}" "${proven_dir}"
+
+  # Step 4: Cleanup old
+  if [[ -d "${TARGET}/proven-old" ]]; then
+    command rm -rf "${TARGET}/proven-old"
+  fi
+
+  # Step 5: Update LFS with new proven
+  command cp "${proven_dir}"/*.tar.gz "${repo_proven}/"
+  (cd "${SCRIPT_DIR}" && git add proven/*.tar.gz && git commit -m "promote: proven deps $(date +%Y-%m-%d)")
+
+  echo "==> Promotion complete. Proven cache updated."
+  echo "    LFS archive committed. Push when ready."
+}
+
 # --- Build ---
 
 cd "${CLONE_DIR}/packaging/macos"
@@ -212,6 +258,13 @@ case "${BUILD_MODE}" in
     echo "==> Full build (all dependencies + mkvtoolnix from source)..."
     wipe_workspace
     ./build.sh
+    ;;
+  promote)
+    if [[ ! -d "${TARGET}/packages" ]] || ! ls "${TARGET}/packages"/*.tar.gz &>/dev/null; then
+      echo "ERROR: No build packages found. Build first, then promote."
+      exit 1
+    fi
+    echo "==> Promote mode — skipping build, running verification..."
     ;;
   auto|"")
     wipe_workspace
@@ -225,24 +278,27 @@ case "${BUILD_MODE}" in
     ;;
 esac
 
-# Rename unversioned cmark package to include version
-if [[ -f "${TARGET}/packages/mtx-build.tar.gz" ]]; then
-  cmark_version=$(echo "${EXPECTED_PACKAGES[@]}" | tr ' ' '\n' | grep "^cmark-")
-  if [[ -n "${cmark_version}" ]]; then
-    echo "==> Renaming mtx-build.tar.gz to ${cmark_version}.tar.gz"
-    command mv "${TARGET}/packages/mtx-build.tar.gz" "${TARGET}/packages/${cmark_version}.tar.gz"
+# Post-build fixups and DMG (skip for promote mode — packages already exist)
+if [[ "${BUILD_MODE}" != "promote" ]]; then
+  # Rename unversioned cmark package to include version
+  if [[ -f "${TARGET}/packages/mtx-build.tar.gz" ]]; then
+    cmark_version=$(echo "${EXPECTED_PACKAGES[@]}" | tr ' ' '\n' | grep "^cmark-")
+    if [[ -n "${cmark_version}" ]]; then
+      echo "==> Renaming mtx-build.tar.gz to ${cmark_version}.tar.gz"
+      command mv "${TARGET}/packages/mtx-build.tar.gz" "${TARGET}/packages/${cmark_version}.tar.gz"
+    fi
   fi
-fi
 
-# Archive docbook-xsl if not already in packages
-if [[ -d "${TARGET}/xsl-stylesheets" ]] && [[ ! -f "${TARGET}/packages/docbook-xsl.tar.gz" ]]; then
-  echo "==> Archiving docbook-xsl..."
-  (cd "${TARGET}" && tar czf "${TARGET}/packages/docbook-xsl.tar.gz" xsl-stylesheets docbook-xsl-*)
-fi
+  # Archive docbook-xsl if not already in packages
+  if [[ -d "${TARGET}/xsl-stylesheets" ]] && [[ ! -f "${TARGET}/packages/docbook-xsl.tar.gz" ]]; then
+    echo "==> Archiving docbook-xsl..."
+    (cd "${TARGET}" && tar czf "${TARGET}/packages/docbook-xsl.tar.gz" xsl-stylesheets docbook-xsl-*)
+  fi
 
-# Package DMG
-echo "==> Building DMG..."
-./build.sh dmg
+  # Package DMG
+  echo "==> Building DMG..."
+  ./build.sh dmg
+fi
 
 # --- Post-build verification ---
 
@@ -318,6 +374,12 @@ if [[ -d "${DMG_APP}" ]]; then
 else
   echo "==> WARNING: App bundle not found at ${DMG_APP} — skipping verification"
   VERIFY_PASSED=false
+fi
+
+# Handle promotion after verification
+if [[ "${BUILD_MODE}" == "promote" ]]; then
+  do_promote
+  exit 0
 fi
 
 # --- Name and copy DMG to dist/ ---
