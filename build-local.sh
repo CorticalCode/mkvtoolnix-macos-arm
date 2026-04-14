@@ -258,6 +258,21 @@ case "${BUILD_MODE}" in
     ;;
 esac
 
+# Rename unversioned cmark package to include version
+if [[ -f "${TARGET}/packages/mtx-build.tar.gz" ]]; then
+  cmark_version=$(echo "${EXPECTED_PACKAGES[@]}" | tr ' ' '\n' | grep "^cmark-")
+  if [[ -n "${cmark_version}" ]]; then
+    echo "==> Renaming mtx-build.tar.gz to ${cmark_version}.tar.gz"
+    command mv "${TARGET}/packages/mtx-build.tar.gz" "${TARGET}/packages/${cmark_version}.tar.gz"
+  fi
+fi
+
+# Archive docbook-xsl if not already in packages
+if [[ -d "${TARGET}/xsl-stylesheets" ]] && [[ ! -f "${TARGET}/packages/docbook-xsl.tar.gz" ]]; then
+  echo "==> Archiving docbook-xsl..."
+  (cd "${TARGET}" && tar czf "${TARGET}/packages/docbook-xsl.tar.gz" xsl-stylesheets docbook-xsl-*)
+fi
+
 # Package DMG
 echo "==> Building DMG..."
 ./build.sh dmg
