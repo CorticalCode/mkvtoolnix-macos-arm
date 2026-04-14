@@ -246,24 +246,78 @@ echo "==> Building DMG..."
 
 # --- Post-build verification ---
 
+VERIFY_PASSED=true
 DMG_APP="${WORK_DIR}/dmg-${VERSION}/MKVToolNix-${VERSION}.app"
+
 if [[ -d "${DMG_APP}" ]]; then
-  # Verify Qt version in the built binary
+  echo "==> Running post-build verification..."
+
+  # 1. Qt version in binary
   BUILT_QT_VERSION=$(otool -L "${DMG_APP}/Contents/MacOS/mkvtoolnix-gui" 2>/dev/null | grep libQt6Core | sed 's/.*current version \([0-9.]*\).*/\1/')
   if [[ -n "${BUILT_QT_VERSION}" ]]; then
     if [[ "${BUILT_QT_VERSION}" == "${QTVER}"* ]]; then
-      echo "==> Verified: built binary links Qt ${BUILT_QT_VERSION} (expected ${QTVER})"
+      echo "    PASS: Qt version ${BUILT_QT_VERSION} matches expected ${QTVER}"
     else
-      echo "WARNING: Qt version mismatch in built binary!"
-      echo "  Expected: ${QTVER}"
-      echo "  Got: ${BUILT_QT_VERSION}"
-      echo "  The build may have used a stale Qt directory."
+      echo "    FAIL: Qt version mismatch — binary has ${BUILT_QT_VERSION}, expected ${QTVER}"
+      VERIFY_PASSED=false
     fi
   fi
 
-  # Verify architecture
-  BUILT_ARCH=$(file "${DMG_APP}/Contents/MacOS/mkvtoolnix-gui" | grep -o 'arm64\|x86_64')
-  echo "==> Verified: binary architecture is ${BUILT_ARCH}"
+  # 2. Architecture check on ALL binaries and dylibs
+  arch_errors=0
+  expected_arch="${MACHINE_ARCH}"
+  while IFS= read -r -d '' binary; do
+    bin_arch=$(file "${binary}" | grep -o 'arm64\|x86_64')
+    if [[ "${bin_arch}" != "${expected_arch}" ]]; then
+      echo "    FAIL: Wrong architecture in ${binary:t}: ${bin_arch} (expected ${expected_arch})"
+      arch_errors=$((arch_errors + 1))
+      VERIFY_PASSED=false
+    fi
+  done < <(find "${DMG_APP}/Contents/MacOS" \( -name "*.dylib" -o -type f -perm +111 \) -not -type d -print0 2>/dev/null)
+  if [[ ${arch_errors} -eq 0 ]]; then
+    echo "    PASS: All binaries and dylibs are ${expected_arch}"
+  fi
+
+  # 3. Duplicate dylib scan
+  dupes=$(find "${DMG_APP}/Contents/MacOS/libs" -name "*.dylib" -not -type l 2>/dev/null | sed 's/\.[0-9]*\.[0-9]*\.[0-9]*\.dylib/.dylib/' | sort | uniq -d)
+  if [[ -n "${dupes}" ]]; then
+    echo "    FAIL: Duplicate dylib versions found:"
+    echo "${dupes}" | while read -r d; do echo "      ${d}"; done
+    VERIFY_PASSED=false
+  else
+    echo "    PASS: No duplicate dylib versions"
+  fi
+
+  # 4. Size sanity check
+  app_size=$(du -sk "${DMG_APP}" 2>/dev/null | awk '{print $1}')
+  size_mb=$((app_size / 1024))
+  min_size=70  # MB — below this something is missing
+  max_size=95  # MB — above this something is duplicated
+  if [[ ${size_mb} -lt ${min_size} ]]; then
+    echo "    FAIL: App is ${size_mb} MB — suspiciously small (expected ${min_size}-${max_size} MB)"
+    VERIFY_PASSED=false
+  elif [[ ${size_mb} -gt ${max_size} ]]; then
+    echo "    FAIL: App is ${size_mb} MB — suspiciously large (expected ${min_size}-${max_size} MB)"
+    VERIFY_PASSED=false
+  else
+    echo "    PASS: App size ${size_mb} MB (expected range ${min_size}-${max_size} MB)"
+  fi
+
+  # 5. Bundle inventory
+  echo "    --- Bundle inventory ---"
+  find "${DMG_APP}/Contents/MacOS/libs" -name "*.dylib" -not -type l 2>/dev/null | while read -r lib; do
+    echo "    $(basename "${lib}")"
+  done
+
+  # Summary
+  if [[ "${VERIFY_PASSED}" == true ]]; then
+    echo "==> Verification: ALL CHECKS PASSED"
+  else
+    echo "==> Verification: SOME CHECKS FAILED — review output above"
+  fi
+else
+  echo "==> WARNING: App bundle not found at ${DMG_APP} — skipping verification"
+  VERIFY_PASSED=false
 fi
 
 # --- Name and copy DMG to dist/ ---
