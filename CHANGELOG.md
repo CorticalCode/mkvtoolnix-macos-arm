@@ -6,6 +6,20 @@ Builds b003 and b004 claimed Qt 6.10.2 but were built against Qt 6.10.0 due to a
 
 The build process now includes pre-build and post-build verification, a proven dependency cache, and comprehensive workspace management to prevent this from happening again.
 
+## Build Optimization (2026-04-14)
+
+Compiler and linker optimization flags for smaller, faster binaries.
+
+**Changes:**
+- Added `-O2` to CFLAGS/CXXFLAGS — autotools deps (Boost, FLAC, libogg, etc.) were building at `-O0`
+- Added `-Wl,-dead_strip` to LDFLAGS — removes unreachable code at link time
+- Added `-DCMAKE_BUILD_TYPE=Release` to cmark build
+- Restored `qt-patches/001-fix-arm-yield-declaration.patch` — Qt 6.10.2 does NOT include the arm_acle.h fix (was incorrectly retired; exposed by `--full` rebuild)
+
+**Size impact:** App 78.5 -> 72.0 MB (8%), DMG 33.9 -> 31.9 MB (6%)
+
+---
+
 ## Build Cache Architecture (2026-04-14)
 
 Comprehensive refactor of the build system to prevent stale artifact contamination.

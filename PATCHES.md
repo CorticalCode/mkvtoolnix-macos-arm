@@ -18,6 +18,7 @@ The build process uses a proven cache architecture: dependencies are compiled on
 | b006 (clean baseline) | 33.9 MB | 78.6 MB | 6.10.2 | verified |
 | b007 (build-cache, full) | 33.9 MB | 78.6 MB | 6.10.2 | verified, full build |
 | b008 (build-cache, restore) | 33.9 MB | 78.5 MB | 6.10.2 | verified, smart restore |
+| b009 (+ O2, dead_strip) | 31.9 MB | 72.0 MB | 6.10.2 | verified, optimization flags |
 
 ---
 
@@ -105,12 +106,27 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 ---
 
+### 6. cmark Release build type (`patches/cmark-release-build.patch`)
+
+**File patched:** `packaging/macos/build.sh` (build_cmark function)
+
+**Problem:** The `build_cmark` function calls cmake without `-DCMAKE_BUILD_TYPE`. CMake defaults to an empty build type with no optimization flags, so cmark compiles at `-O0`.
+
+**Fix:** Add `-DCMAKE_BUILD_TYPE=Release` to the cmake arguments. This enables standard `-O2 -DNDEBUG` optimization.
+
+---
+
 ## Config overlay (`config/config.local.sh`)
 
 **Not a patch** -- a config file sourced by the upstream build system.
 
 - `SIGNATURE_IDENTITY=""` -- disables code signing (no Apple Developer cert)
 - `DRAKETHREADS=12` -- parallel build threads (default is 4, machine has 14 cores)
+- `CFLAGS += -O2` -- standard release optimization (upstream sets no -O flag)
+- `CXXFLAGS += -O2` -- same for C++
+- `LDFLAGS += -Wl,-dead_strip` -- remove unreachable code at link time
+
+**Size impact of optimization flags:** 78.5 -> 72.0 MB uncompressed (8% reduction), 33.9 -> 31.9 MB DMG (6% reduction).
 
 ---
 
