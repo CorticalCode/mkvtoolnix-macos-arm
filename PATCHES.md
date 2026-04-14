@@ -113,13 +113,21 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 ## Build script fixes (in `build-local.sh`)
 
-**`command cp` instead of `cp`:** macOS zsh aliases `cp` to `cp -i` (interactive). In non-interactive shells, `cp -i` prompts for overwrite confirmation, gets no input, and defaults to "no". `command cp` bypasses the alias.
+**Proven cache architecture:** Compiled dependency packages are stored in a proven cache (`~/opt/proven/`). Each build wipes the workspace (everything under `~/opt/` except `proven/` and `source/`), restores from the proven cache, and only builds what's missing. If all deps are available, only mkvtoolnix is rebuilt (minutes instead of hours). A full rebuild from source is available with `--full`.
 
-**`git checkout -- .` before patching:** On re-runs, the source tree may have patches already applied. Resetting first ensures a clean slate.
+**Promotion workflow:** After a successful build and manual testing, `--promote` archives the current proven cache to Git LFS, atomically swaps in the new packages, and commits. Uses directory-swap for atomicity — interruption at any point leaves either old or new proven intact.
 
-**`mkdir -p ~/opt/include ~/opt/lib`:** The upstream build scripts assume these directories exist.
+**Post-build verification:** Checks Qt version in binary, architecture of all binaries and dylibs, duplicate dylib scan, size sanity (70-95 MB range), and bundle inventory. Promotion is blocked if verification fails.
 
-**Smart dep caching:** Auto-detects 14 cached dependency packages in `~/opt/packages/`. If all present, restores from cache and only builds mkvtoolnix (minutes instead of hours).
+**Pre-build verification:** QTVER/specs.sh consistency check (already existed), stale build directory cleanup for all 14 dependencies (extended from Qt-only).
+
+**cmark package rename:** Upstream names the cmark package `mtx-build.tar.gz`. Renamed to `cmark-0.30.3.tar.gz` after build so version bumps invalidate the cache.
+
+**DocBook XSL in cache:** Archived and restored alongside compiled packages.
+
+**`command cp` instead of `cp`:** macOS zsh aliases `cp` to `cp -i` (interactive). `command cp` bypasses the alias.
+
+**`git checkout -- .` before patching:** Ensures clean slate on re-runs.
 
 ---
 

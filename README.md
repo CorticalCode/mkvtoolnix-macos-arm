@@ -18,7 +18,7 @@ xattr -cr /Applications/MKVToolNix*.app
 
 ## Build locally
 
-Requirements: Xcode CLI tools, ~10 GB disk space, 1-3 hours.
+Requirements: Xcode CLI tools, ~10 GB disk space, 1-3 hours (first build; subsequent builds reuse cached dependencies and take ~15 minutes).
 
 ```sh
 git clone https://github.com/corticalcode/mkvtoolnix-gui-macos.git
@@ -27,6 +27,8 @@ cd mkvtoolnix-gui-macos
 ```
 
 The DMG will be at `~/tmp/compile/MKVToolNix-98.0.dmg`.
+
+Use `--full` to force a complete rebuild from source. Use `--promote` after testing to save dependencies for future builds.
 
 ## What this repo contains
 
