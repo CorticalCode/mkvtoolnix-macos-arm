@@ -276,6 +276,25 @@ function do_promote {
   echo "    LFS archive committed. Push when ready."
 }
 
+function write_report {
+  local report_file="${WORK_DIR}/build-report-${VERSION}.txt"
+  {
+    echo "Build Report: MKVToolNix ${VERSION}"
+    echo "Date: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "Architecture: ${MACHINE_ARCH} (${ARCH_LABEL})"
+    echo "Mode: ${BUILD_MODE}"
+    echo "Build: ${BUILD_SUMMARY:-unknown}"
+    echo ""
+    echo "Verification: $(if [[ "${VERIFY_PASSED}" == true ]]; then echo "PASSED"; else echo "FAILED"; fi)"
+    [[ -n "${BUILT_QT_VERSION}" ]] && echo "Qt version: ${BUILT_QT_VERSION} (expected ${QTVER})"
+    [[ -n "${size_mb}" ]] && echo "App size: ${size_mb} MB"
+    echo ""
+    [[ -n "${DMG_NAME}" ]] && echo "DMG: ${DIST_DIR}/${DMG_NAME}"
+    echo "Log: ${LOG_FILE}"
+  } > "${report_file}"
+  echo "==> Build report: ${report_file}"
+}
+
 # --- Build ---
 
 cd "${CLONE_DIR}/packaging/macos"
@@ -283,6 +302,7 @@ cd "${CLONE_DIR}/packaging/macos"
 case "${BUILD_MODE}" in
   full)
     echo "==> Full build (all dependencies + mkvtoolnix from source)..."
+    BUILD_SUMMARY="Full build from source"
     wipe_workspace
     ./build.sh
     ;;
@@ -291,14 +311,17 @@ case "${BUILD_MODE}" in
       echo "ERROR: No build packages found. Build first, then promote."
       exit 1
     fi
+    BUILD_SUMMARY="Promote (verification only)"
     echo "==> Promote mode — skipping build, running verification..."
     ;;
   auto|"")
     wipe_workspace
     if restore_from_proven; then
+      BUILD_SUMMARY="Restored from proven, built mkvtoolnix only"
       echo "==> All dependencies restored from proven. Building mkvtoolnix only..."
       ./build.sh mkvtoolnix
     else
+      BUILD_SUMMARY="No proven cache, full build from source"
       echo "==> Some dependencies missing from proven. Doing full build..."
       ./build.sh
     fi
@@ -405,6 +428,7 @@ fi
 
 # Handle promotion after verification
 if [[ "${BUILD_MODE}" == "promote" ]]; then
+  write_report
   do_promote
   exit 0
 fi
@@ -438,3 +462,5 @@ else
   echo "==> DMG not found at expected path. Check ${WORK_DIR} for output."
   ls -la "${WORK_DIR}"/MKVToolNix*.dmg 2>/dev/null || true
 fi
+
+write_report
