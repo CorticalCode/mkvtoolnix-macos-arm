@@ -1,11 +1,17 @@
 # Multi-agent review scratch system (Claude, Codex, Gemini)
 /
 
-# AI agent configuration (private, backed up to ~// project area)
+# AI agent configuration files (private)
 
 
-# Claude Code project config (local permissions, memory)
+
 /
+/
+/
+/
+rules
+/
+*
 
 # Distribution outputs (DMGs)
 dist/
