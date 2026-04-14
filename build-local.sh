@@ -107,6 +107,26 @@ mkdir -p "${TARGET}/include" "${TARGET}/lib" "${PACKAGE_DIR}" "${WORK_DIR}"
 LOG_FILE="${WORK_DIR}/build-${VERSION}-$(date +%Y%m%d-%H%M%S).log"
 exec > >(tee "${LOG_FILE}") 2>&1
 
+# Build report function (defined early so EXIT trap can use it on any failure)
+function write_report {
+  local report_file="${WORK_DIR}/build-report-${VERSION}.txt"
+  {
+    echo "Build Report: MKVToolNix ${VERSION}"
+    echo "Date: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "Architecture: ${MACHINE_ARCH} (${ARCH_LABEL})"
+    echo "Mode: ${BUILD_MODE}"
+    echo "Build: ${BUILD_SUMMARY:-unknown}"
+    echo ""
+    echo "Verification: $(if [[ "${VERIFY_PASSED}" == true ]]; then echo "PASSED"; else echo "FAILED"; fi)"
+    [[ -n "${BUILT_QT_VERSION}" ]] && echo "Qt version: ${BUILT_QT_VERSION} (expected ${QTVER})"
+    [[ -n "${size_mb}" ]] && echo "App size: ${size_mb} MB"
+    echo ""
+    [[ -n "${DMG_NAME}" ]] && echo "DMG: ${DIST_DIR}/${DMG_NAME}"
+    echo "Log: ${LOG_FILE}"
+  } > "${report_file}"
+  echo "==> Build report: ${report_file}"
+}
+
 # Write build report on exit (success or failure)
 trap '{
   BUILD_SUMMARY="${BUILD_SUMMARY:-FAILED (script exited unexpectedly)}"
@@ -137,15 +157,17 @@ else
   fi
 fi
 
-# Copy our config overlay
+# Reset source tree for clean patch application
+cd "${CLONE_DIR}"
+git checkout -- .
+git clean -fd -q  # Remove untracked files from prior runs (qt-patches, config overlay, etc.)
+
+# Copy our config overlay (after clean, so it doesn't get removed)
 echo "==> Applying config overlay..."
 command cp "${SCRIPT_DIR}/config/config.local.sh" "${CLONE_DIR}/packaging/macos/config.local.sh"
 
-# Reset source tree and apply patches fresh
+# Apply patches
 echo "==> Applying patches..."
-cd "${CLONE_DIR}"
-git checkout -- .
-git clean -fd -q  # Remove untracked files from prior runs (qt-patches, etc.)
 for patch in "${SCRIPT_DIR}"/patches/*.patch; do
   [[ -f "${patch}" ]] || continue
   echo "    Applying ${patch:t}..."
@@ -172,12 +194,12 @@ fi
 # Save our state — sourced files can disable set -e, change options, clobber vars
 _SAVED_TARGET="${TARGET}"
 _SAVED_WORK_DIR="${WORK_DIR}"
-_SAVED_OPTS=$(setopt)
+_SAVED_OPTS=$(setopt | tr '\n' ' ')
 source "${CLONE_DIR}/packaging/macos/config.sh"
 test -f "${CLONE_DIR}/packaging/macos/config.local.sh" && source "${CLONE_DIR}/packaging/macos/config.local.sh"
 source "${CLONE_DIR}/packaging/macos/specs.sh"
-# Restore our state
-eval "${_SAVED_OPTS}" 2>/dev/null
+# Restore our state — re-enable options that sourced files may have disabled
+setopt ${=_SAVED_OPTS} 2>/dev/null
 set -e
 TARGET="${_SAVED_TARGET}"
 WORK_DIR="${_SAVED_WORK_DIR}"
@@ -337,25 +359,6 @@ function do_promote {
 
   echo "==> Promotion complete. Proven cache updated."
   echo "    LFS archive committed. Push when ready."
-}
-
-function write_report {
-  local report_file="${WORK_DIR}/build-report-${VERSION}.txt"
-  {
-    echo "Build Report: MKVToolNix ${VERSION}"
-    echo "Date: $(date '+%Y-%m-%d %H:%M:%S')"
-    echo "Architecture: ${MACHINE_ARCH} (${ARCH_LABEL})"
-    echo "Mode: ${BUILD_MODE}"
-    echo "Build: ${BUILD_SUMMARY:-unknown}"
-    echo ""
-    echo "Verification: $(if [[ "${VERIFY_PASSED}" == true ]]; then echo "PASSED"; else echo "FAILED"; fi)"
-    [[ -n "${BUILT_QT_VERSION}" ]] && echo "Qt version: ${BUILT_QT_VERSION} (expected ${QTVER})"
-    [[ -n "${size_mb}" ]] && echo "App size: ${size_mb} MB"
-    echo ""
-    [[ -n "${DMG_NAME}" ]] && echo "DMG: ${DIST_DIR}/${DMG_NAME}"
-    echo "Log: ${LOG_FILE}"
-  } > "${report_file}"
-  echo "==> Build report: ${report_file}"
 }
 
 # --- Build ---
