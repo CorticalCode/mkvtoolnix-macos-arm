@@ -1,5 +1,6 @@
 #!/bin/zsh
 set -e
+trap 'echo "ERROR: build-local.sh failed at line ${LINENO} (exit code $?)" >&2' ZERR
 
 SCRIPT_DIR=${0:a:h}
 UPSTREAM_URL="https://codeberg.org/mbunkus/mkvtoolnix.git"
@@ -87,6 +88,11 @@ echo "==> Work directory: ${WORK_DIR}"
 
 # Ensure required directories exist
 mkdir -p "${TARGET}/include" "${TARGET}/lib" "${PACKAGE_DIR}" "${WORK_DIR}"
+
+# Start logging — capture everything from here onward
+LOG_FILE="${WORK_DIR}/build-${VERSION}-$(date +%Y%m%d-%H%M%S).log"
+exec > >(tee "${LOG_FILE}") 2>&1
+echo "==> Logging to ${LOG_FILE}"
 
 # Clone upstream at the specified tag
 CLONE_DIR="${WORK_DIR}/mkvtoolnix-src"
@@ -188,7 +194,7 @@ function restore_from_proven {
     if [[ -f "${pkg_file}" ]]; then
       echo "    Restoring ${pkg}..."
       (cd "${TARGET}" && tar xzf "${pkg_file}")
-      ((restored++))
+      restored=$((restored + 1))
     else
       echo "    Missing from proven: ${pkg}"
       missing+=("${pkg}")
