@@ -143,23 +143,26 @@ if [[ "${SPECS_QT_FILE}" != "${EXPECTED_QT_DIR}.tar.xz" ]]; then
 fi
 echo "==> Verified: QTVER=${QTVER} matches specs.sh (${SPECS_QT_FILE})"
 
-# Expected dependency packages (defined here for stale cleanup and proven restore)
-EXPECTED_PACKAGES=(
-  autoconf-2.69
-  automake-1.16.1
-  pkg-config-0.29.2
-  libiconv-1.16
-  cmake-3.31.3
-  libogg-1.3.4
-  libvorbis-1.3.7
-  flac-1.5.0
-  zlib-1.3.1
-  gettext-0.23
-  cmark-0.30.3
-  gmp-6.3.0
-  boost_1_88_0
-  qt-everywhere-src-6.10.2
+# Derive expected package names from specs.sh (single source of truth for versions)
+# Produces names like: autoconf-2.69, boost_1_88_0, qt-everywhere-src-6.10.2, etc.
+EXPECTED_SPEC_VARS=(
+  spec_autoconf spec_automake spec_pkgconfig spec_libiconv
+  spec_cmake spec_ogg spec_vorbis spec_flac spec_zlib spec_gettext
+  spec_cmark spec_gmp spec_boost spec_qt
 )
+EXPECTED_PACKAGES=()
+for spec_var in "${EXPECTED_SPEC_VARS[@]}"; do
+  filename="${${(P)spec_var}[1]}"
+  if [[ -z "${filename}" ]]; then
+    echo "ERROR: ${spec_var} not found in specs.sh — upstream may have renamed it"
+    echo "  Check the upstream specs.sh and update EXPECTED_SPEC_VARS"
+    exit 1
+  fi
+  pkg="${filename%%.tar.*}"
+  EXPECTED_PACKAGES+=("${pkg}")
+done
+# Fix zlib naming (spec has zlib-v1.3.1, package is zlib-1.3.1)
+EXPECTED_PACKAGES=("${EXPECTED_PACKAGES[@]/zlib-v/zlib-}")
 
 # Clean ALL stale build directories (not just Qt)
 echo "==> Cleaning stale build directories..."
