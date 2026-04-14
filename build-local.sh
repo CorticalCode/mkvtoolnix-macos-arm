@@ -110,14 +110,21 @@ LOG_FILE="${WORK_DIR}/build-${VERSION}-$(date +%Y%m%d-%H%M%S).log"
 exec > >(tee "${LOG_FILE}") 2>&1
 echo "==> Logging to ${LOG_FILE}"
 
-# Clone upstream at the specified tag
+# Clone upstream at the specified tag (or verify existing clone matches)
 CLONE_DIR="${WORK_DIR}/mkvtoolnix-src"
 if [[ ! -d "${CLONE_DIR}/.git" ]]; then
   echo "==> Cloning upstream ${TAG}..."
   git clone --depth 1 --branch "${TAG}" "${UPSTREAM_URL}" "${CLONE_DIR}"
 else
-  echo "==> Source already cloned at ${CLONE_DIR}"
-  echo "    To re-clone, remove it: rm -rf ${CLONE_DIR}"
+  # Verify the clone is on the correct tag
+  CURRENT_TAG=$(git -C "${CLONE_DIR}" describe --tags --exact-match 2>/dev/null || true)
+  if [[ "${CURRENT_TAG}" != "${TAG}" ]]; then
+    echo "==> Clone exists but is on ${CURRENT_TAG:-unknown}, need ${TAG}. Re-cloning..."
+    command rm -rf "${CLONE_DIR}"
+    git clone --depth 1 --branch "${TAG}" "${UPSTREAM_URL}" "${CLONE_DIR}"
+  else
+    echo "==> Source already cloned at ${CLONE_DIR} (${TAG})"
+  fi
 fi
 
 # Copy our config overlay
@@ -128,6 +135,7 @@ command cp "${SCRIPT_DIR}/config/config.local.sh" "${CLONE_DIR}/packaging/macos/
 echo "==> Applying patches..."
 cd "${CLONE_DIR}"
 git checkout -- .
+git clean -fd -q  # Remove untracked files from prior runs (qt-patches, etc.)
 for patch in "${SCRIPT_DIR}"/patches/*.patch; do
   [[ -f "${patch}" ]] || continue
   echo "    Applying ${patch:t}..."
