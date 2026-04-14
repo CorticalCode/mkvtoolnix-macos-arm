@@ -18,7 +18,8 @@ The build process uses a proven cache architecture: dependencies are compiled on
 | b006 (clean baseline) | 33.9 MB | 78.6 MB | 6.10.2 | verified |
 | b007 (build-cache, full) | 33.9 MB | 78.6 MB | 6.10.2 | verified, full build |
 | b008 (build-cache, restore) | 33.9 MB | 78.5 MB | 6.10.2 | verified, smart restore |
-| b009 (+ O2, dead_strip) | 31.9 MB | 72.0 MB | 6.10.2 | verified, optimization flags |
+| b009 (+ O2, dead_strip) | 31.9 MB | 72.0 MB | 6.10.2 | ARM, verified, optimization flags |
+| Intel b001 | 39.0 MB | 86.6 MB | 6.10.2 | Intel, verified, pre-optimization |
 
 ---
 
