@@ -1,13 +1,28 @@
 # Changelog
 
-## v98.0-arm64-b004 (2026-04-13)
+## Correction Notice (2026-04-13)
 
-Remove unused Qt PrintSupport module. Consolidate specs patches.
+Builds b003 and b004 claimed Qt 6.10.2 but were built against Qt 6.10.0 due to a version mismatch bug. A stale Qt 6.10.0 build directory masked the error on ARM. The bug was discovered when attempting an Intel build on a clean machine. Releases r2 and r3 have been removed. See the b003/b004 entries below for details.
+
+The build process now includes pre-build and post-build verification to prevent this from happening again. Further improvements to the build cache architecture are in progress.
+
+---
+
+## v98.0-arm64-b005 (2026-04-13)
+
+Genuine Qt 6.10.2 build with version verification.
 
 **Changes:**
-- Removed Qt PrintSupport module -- zero references in MKVToolNix source
-- Combined zlib URL fix and Qt version bump into single `specs-updates.patch` to resolve patch ordering conflicts
-- DMG: 35.5 MB (138 KB smaller than b003)
+- Fixed QTVER mismatch — config.local.sh now sets QTVER=6.10.2 to match specs-updates.patch
+- Added pre-build verification: fails fast if QTVER doesn't match specs.sh
+- Added stale directory cleanup: removes old Qt build directories before extraction
+- Added post-build verification: confirms Qt version in binary and architecture
+- Cleaned stale Qt 6.10.0 artifacts from build environment
+
+**Verification output:**
+- Pre-build: QTVER=6.10.2 matches specs.sh
+- Post-build: binary links Qt 6.10.2 (confirmed)
+- Architecture: arm64
 
 **Active patches (4):**
 - `qt6-cmake-install.patch` -- Qt6 install fix
@@ -17,20 +32,21 @@ Remove unused Qt PrintSupport module. Consolidate specs patches.
 
 ---
 
-## v98.0-arm64-b003 (2026-04-13)
+## v98.0-arm64-b004 (2026-04-13) — RETRACTED
+
+Remove unused Qt PrintSupport module. Consolidate specs patches.
+
+**Note:** This build claimed Qt 6.10.2 but was built against Qt 6.10.0 due to QTVER mismatch. The stale Qt 6.10.0 build directory was used instead of the 6.10.2 source. Release r3 was removed.
+
+---
+
+## v98.0-arm64-b003 (2026-04-13) — RETRACTED
 
 Bump Qt from 6.10.0 to 6.10.2.
 
-**Changes:**
-- Qt 6.10.2 includes UI bug fixes reported by the community (progress bar updates, preferences truncation, pane resizing, macOS 26 rendering) -- not independently verified by us
-- Removed `qt-patches/001-fix-arm-yield-declaration.patch` -- Qt 6.10.2 includes the same `arm_acle.h` fix upstream, making our patch redundant
-- DMG size unchanged (34.0 MB)
+**Note:** This build claimed Qt 6.10.2 but was built against Qt 6.10.0 due to QTVER mismatch. A stale Qt 6.10.0 directory in the compile workspace masked the error. Release r2 was removed.
 
-**Active patches (3):**
-- `qt6-cmake-install.patch` -- Qt6 install fix
-- `qt-version-bump-6.10.2.patch` -- Qt version bump
-- `strip-dylibs.patch` -- strip debug symbols
-- `zlib-url-fix.patch` -- dead URL fix
+**Root cause:** Our specs-updates.patch correctly changed the Qt download URL and checksum to 6.10.2, but upstream's config.sh still set QTVER=6.10.0. The build_qt function uses QTVER for the directory name. On ARM, the old 6.10.0 directory still existed from the first build, so the cd succeeded — silently building from old source. On Intel (clean machine), there was no stale directory and the build correctly failed.
 
 ---
 
@@ -43,7 +59,7 @@ Strip debug symbols from Qt shared libraries and plugins.
 - DMG: 34.9 MB -> 34.0 MB (0.9 MB saved, compressed masks most of the gain)
 
 **Patch added:**
-- `strip-dylibs.patch` — strip -x on all dylibs after library path fixup
+- `strip-dylibs.patch` -- strip -x on all dylibs after library path fixup
 
 ---
 
@@ -59,7 +75,7 @@ First successful build of MKVToolNix 98.0 for macOS Apple Silicon.
 - ARM64 (Apple Silicon), deployment target macOS 13+
 
 **Patches applied:**
-- `qt6-cmake-install.patch` — fix Qt6 install step in build.sh
-- `zlib-url-fix.patch` — fix dead zlib download URL
-- `qt-patches/001-fix-arm-yield-declaration.patch` — fix Qt6 ARM `__yield` compilation error
-- `config.local.sh` — disable code signing, set 12 build threads
+- `qt6-cmake-install.patch` -- fix Qt6 install step in build.sh
+- `zlib-url-fix.patch` -- fix dead zlib download URL
+- `qt-patches/001-fix-arm-yield-declaration.patch` -- fix Qt6 ARM `__yield` compilation error
+- `config.local.sh` -- disable code signing, set 12 build threads

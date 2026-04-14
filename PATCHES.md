@@ -2,15 +2,19 @@
 
 Living document tracking every modification made to build MKVToolNix on macOS Apple Silicon, the problems encountered, and how they were resolved.
 
+## Build status
+
+The build process is under active improvement. A version mismatch bug was discovered on 2026-04-13 where builds b003 and b004 claimed Qt 6.10.2 but were silently built against Qt 6.10.0. Pre-build and post-build verification checks have been added to prevent this. A more resilient build cache architecture is being designed.
+
 ## Size progression
 
-| Build | DMG | App on disk | Change |
-|-------|-----|-------------|--------|
-| b001 (baseline, Qt 6.10.0) | 34.9 MB | 84.8 MB | -- |
-| b002 (+ strip dylibs) | 34.0 MB | 78.9 MB | -5.9 MB app |
-| b003 (+ Qt 6.10.2) | 34.0 MB | 78.9 MB | one fewer patch |
-| b004 (+ no PrintSupport) | 33.9 MB | 78.4 MB | -0.5 MB app |
-| **Total saved** | **1.0 MB** | **6.4 MB (7.6%)** | |
+| Build | DMG | App on disk | Qt actual | Notes |
+|-------|-----|-------------|-----------|-------|
+| b001 (baseline) | 34.9 MB | 84.8 MB | 6.10.0 | verified |
+| b002 (+ strip dylibs) | 34.0 MB | 78.9 MB | 6.10.0 | verified |
+| b003 (+ Qt bump) | 34.0 MB | 78.9 MB | **6.10.0** | RETRACTED — claimed 6.10.2 |
+| b004 (+ no PrintSupport) | 33.9 MB | 78.4 MB | **6.10.0** | RETRACTED — claimed 6.10.2 |
+| b005 (genuine 6.10.2) | pending | pending | 6.10.2 | verified by post-build check |
 
 ---
 
@@ -139,3 +143,24 @@ This patch combines two changes to the same file to avoid context conflicts when
 **macOS 13 deployment target:** No issues. Binaries built on macOS 26 with `MACOSX_DEPLOYMENT_TARGET=13` work correctly.
 
 **Stale dependency URLs:** Checked all 17 URLs. Only zlib was dead (patched above). All others return 200.
+
+---
+
+## Issues discovered during development
+
+### QTVER mismatch (discovered 2026-04-13)
+
+**Severity:** High — caused mislabeled releases (r2, r3 removed)
+
+**Problem:** specs-updates.patch changed specs.sh to download Qt 6.10.2, but QTVER in upstream config.sh remained 6.10.0. The build_qt function uses QTVER for the directory name after extraction. On ARM, a stale qt-everywhere-src-6.10.0 directory masked the error — builds appeared to succeed but used old Qt source. On Intel (clean machine), the directory didn't exist and the build correctly failed.
+
+**Root cause:** Qt version is specified in multiple locations (specs.sh, config.sh, build-local.sh EXPECTED_PACKAGES) with no validation that they agree.
+
+**Fix applied:**
+- Set QTVER=6.10.2 in config.local.sh
+- Updated EXPECTED_PACKAGES in build-local.sh
+- Added pre-build check: verifies QTVER matches specs.sh, fails fast on mismatch
+- Added stale Qt directory cleanup before extraction
+- Added post-build check: confirms Qt version in the built binary
+
+**Lesson:** Stale build artifacts can silently produce incorrect builds. Version changes must be validated end-to-end, not just at the download step. A build cache architecture with clean workspaces is being designed to prevent this class of error permanently.
