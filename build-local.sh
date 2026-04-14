@@ -1,7 +1,21 @@
 #!/bin/zsh
+# Guard: must be executed by zsh, not sourced or run by another shell
+if [[ -z "${ZSH_VERSION}" ]]; then
+  echo "ERROR: This script requires zsh. Run it with: ./build-local.sh" >&2
+  exit 1
+fi
+if [[ "${ZSH_EVAL_CONTEXT}" == *:file ]]; then
+  echo "ERROR: This script must be executed, not sourced." >&2
+  return 1
+fi
+
 set -e
 setopt NULL_GLOB  # Unmatched globs expand to nothing instead of aborting
-trap 'echo "ERROR: build-local.sh failed at line ${LINENO} (exit code $?)" >&2' ZERR
+unalias -a 2>/dev/null || true  # Prevent .zshenv aliases from leaking into script
+
+TRAPZERR() {
+  echo "ERROR: build-local.sh failed at ${funcfiletrace[1]:-line ${LINENO}} (exit code $?)" >&2
+}
 
 SCRIPT_DIR=${0:a:h}
 UPSTREAM_URL="https://codeberg.org/mbunkus/mkvtoolnix.git"
@@ -15,6 +29,7 @@ elif [[ "${MACHINE_ARCH}" == "x86_64" ]]; then
 else
   ARCH_LABEL="${MACHINE_ARCH}"
 fi
+echo "==> Shell: zsh ${ZSH_VERSION}, arch: ${MACHINE_ARCH} (${ARCH_LABEL})"
 
 function wipe_workspace {
   echo "==> Wiping workspace (preserving proven/ and source/)..."
