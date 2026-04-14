@@ -16,7 +16,8 @@ rules
 # Distribution outputs (DMGs)
 dist/
 
-# Per-architecture build counters (local state)
+# Build counters (local state)
+.build-counter
 .build-counter-*
 # macOS
 .DS_Store

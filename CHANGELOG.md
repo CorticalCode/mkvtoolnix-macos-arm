@@ -4,7 +4,7 @@
 
 Builds b003 and b004 claimed Qt 6.10.2 but were built against Qt 6.10.0 due to a version mismatch bug. A stale Qt 6.10.0 build directory masked the error on ARM. The bug was discovered when attempting an Intel build on a clean machine. Releases r2 and r3 have been removed. See the b003/b004 entries below for details.
 
-The build process now includes pre-build and post-build verification to prevent this from happening again. Further improvements to the build cache architecture are in progress.
+The build process now includes pre-build and post-build verification, a proven dependency cache, and comprehensive workspace management to prevent this from happening again.
 
 ## Build Cache Architecture (2026-04-14)
 

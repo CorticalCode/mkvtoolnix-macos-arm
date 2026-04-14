@@ -169,9 +169,9 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 **Fix applied:**
 - Set QTVER=6.10.2 in config.local.sh
-- Updated EXPECTED_PACKAGES in build-local.sh
+- EXPECTED_PACKAGES derived dynamically from specs.sh
 - Added pre-build check: verifies QTVER matches specs.sh, fails fast on mismatch
 - Added stale Qt directory cleanup before extraction
 - Added post-build check: confirms Qt version in the built binary
 
-**Lesson:** Stale build artifacts can silently produce incorrect builds. Version changes must be validated end-to-end, not just at the download step. A build cache architecture with clean workspaces is being designed to prevent this class of error permanently.
+**Lesson:** Stale build artifacts can silently produce incorrect builds. Version changes must be validated end-to-end, not just at the download step. The build cache architecture now wipes the workspace before every build, preventing this class of error.
