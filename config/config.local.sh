@@ -1,5 +1,7 @@
-# Override signing identity — we don't have the developer's cert
-export SIGNATURE_IDENTITY=""
+# Ad-hoc code signing — required for macOS Sequoia 15.1+ which blocks
+# completely unsigned apps. The "-" identity signs without a certificate.
+# This doesn't notarize but allows Gatekeeper's "Open Anyway" flow to work.
+export SIGNATURE_IDENTITY="-"
 
 # Use more cores (default is 4)
 export DRAKETHREADS=12
