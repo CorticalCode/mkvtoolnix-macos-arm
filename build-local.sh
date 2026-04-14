@@ -247,13 +247,6 @@ DIST_DIR="${SCRIPT_DIR}/dist"
 BUILD_COUNTER_FILE="${SCRIPT_DIR}/.build-counter-${ARCH_LABEL}"
 mkdir -p "${DIST_DIR}"
 
-# Migrate from old global counter if per-arch counter doesn't exist
-OLD_COUNTER_FILE="${SCRIPT_DIR}/.build-counter"
-if [[ ! -f "${BUILD_COUNTER_FILE}" ]] && [[ -f "${OLD_COUNTER_FILE}" ]]; then
-  command cp "${OLD_COUNTER_FILE}" "${BUILD_COUNTER_FILE}"
-  echo "==> Migrated build counter from global ($(cat "${OLD_COUNTER_FILE}")) to ${ARCH_LABEL}"
-fi
-
 DMG_PATH="${WORK_DIR}/MKVToolNix-${VERSION}.dmg"
 
 if [[ -f "${DMG_PATH}" ]]; then
