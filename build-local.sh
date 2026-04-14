@@ -267,7 +267,7 @@ function do_promote {
     echo "    Archiving current ${ARCH_LABEL} proven to LFS..."
     mkdir -p "${repo_proven}"
     command cp "${proven_dir}"/*.tar.gz "${repo_proven}/"
-    (cd "${SCRIPT_DIR}" && git add "proven/${ARCH_LABEL}/"*.tar.gz && git commit -m "archive: ${ARCH_LABEL} proven deps before promotion $(date +%Y-%m-%d)")
+    (cd "${SCRIPT_DIR}" && git add "proven/${ARCH_LABEL}/"*.tar.gz && git diff --cached --quiet || git commit -- "proven/${ARCH_LABEL}/" -m "archive: ${ARCH_LABEL} proven deps before promotion $(date +%Y-%m-%d)")
   fi
 
   # Step 2: Build new proven set in temp directory
@@ -275,7 +275,8 @@ function do_promote {
   mkdir -p "${proven_new}"
   command cp "${packages_dir}"/*.tar.gz "${proven_new}/"
 
-  # Step 3: Atomic swap
+  # Step 3: Atomic swap — clean up stale old dir first to prevent nesting
+  command rm -rf "${TARGET}/proven-${ARCH_LABEL}-old"
   if [[ -d "${proven_dir}" ]]; then
     command mv "${proven_dir}" "${TARGET}/proven-${ARCH_LABEL}-old"
   fi
@@ -290,7 +291,7 @@ function do_promote {
   # Step 5: Update LFS with new proven
   mkdir -p "${repo_proven}"
   command cp "${proven_dir}"/*.tar.gz "${repo_proven}/"
-  (cd "${SCRIPT_DIR}" && git add "proven/${ARCH_LABEL}/"*.tar.gz && git commit -m "promote: ${ARCH_LABEL} proven deps $(date +%Y-%m-%d)")
+  (cd "${SCRIPT_DIR}" && git add "proven/${ARCH_LABEL}/"*.tar.gz && git diff --cached --quiet || git commit -- "proven/${ARCH_LABEL}/" -m "promote: ${ARCH_LABEL} proven deps $(date +%Y-%m-%d)")
 
   echo "==> Promotion complete. Proven cache updated."
   echo "    LFS archive committed. Push when ready."
@@ -352,7 +353,7 @@ esac
 if [[ "${BUILD_MODE}" != "promote" ]]; then
   # Rename unversioned cmark package to include version
   if [[ -f "${TARGET}/packages/mtx-build.tar.gz" ]]; then
-    cmark_version=$(echo "${EXPECTED_PACKAGES[@]}" | tr ' ' '\n' | grep "^cmark-")
+    cmark_version=$(echo "${EXPECTED_PACKAGES[@]}" | tr ' ' '\n' | grep "^cmark-" || true)
     if [[ -n "${cmark_version}" ]]; then
       echo "==> Renaming mtx-build.tar.gz to ${cmark_version}.tar.gz"
       command mv "${TARGET}/packages/mtx-build.tar.gz" "${TARGET}/packages/${cmark_version}.tar.gz"
@@ -379,29 +380,41 @@ if [[ -d "${DMG_APP}" ]]; then
   echo "==> Running post-build verification..."
 
   # 1. Qt version in binary
-  BUILT_QT_VERSION=$(otool -L "${DMG_APP}/Contents/MacOS/mkvtoolnix-gui" 2>/dev/null | grep libQt6Core | sed 's/.*current version \([0-9.]*\).*/\1/')
+  BUILT_QT_VERSION=$(otool -L "${DMG_APP}/Contents/MacOS/mkvtoolnix-gui" 2>/dev/null | grep libQt6Core | sed 's/.*current version \([0-9.]*\).*/\1/' || true)
   if [[ -n "${BUILT_QT_VERSION}" ]]; then
-    if [[ "${BUILT_QT_VERSION}" == "${QTVER}"* ]]; then
+    if [[ "${BUILT_QT_VERSION}" == "${QTVER}" ]]; then
       echo "    PASS: Qt version ${BUILT_QT_VERSION} matches expected ${QTVER}"
     else
       echo "    FAIL: Qt version mismatch — binary has ${BUILT_QT_VERSION}, expected ${QTVER}"
       VERIFY_PASSED=false
     fi
+  else
+    echo "    FAIL: Could not determine Qt version from binary"
+    VERIFY_PASSED=false
   fi
 
   # 2. Architecture check on ALL binaries and dylibs
   arch_errors=0
+  arch_checked=0
   expected_arch="${MACHINE_ARCH}"
-  while IFS= read -r -d '' binary; do
-    bin_arch=$(file "${binary}" | grep -o 'arm64\|x86_64')
-    if [[ "${bin_arch}" != "${expected_arch}" ]]; then
-      echo "    FAIL: Wrong architecture in ${binary:t}: ${bin_arch} (expected ${expected_arch})"
-      arch_errors=$((arch_errors + 1))
-      VERIFY_PASSED=false
-    fi
-  done < <(/usr/bin/find "${DMG_APP}/Contents/MacOS" \( -name "*.dylib" -o -type f -perm +111 \) -not -type d -print0 2>/dev/null)
-  if [[ ${arch_errors} -eq 0 ]]; then
-    echo "    PASS: All binaries and dylibs are ${expected_arch}"
+  if [[ -d "${DMG_APP}/Contents/MacOS" ]]; then
+    while IFS= read -r -d '' binary; do
+      file_info=$(file "${binary}" 2>/dev/null || true)
+      # Skip non-Mach-O files (scripts, text, etc.)
+      [[ "${file_info}" == *"Mach-O"* ]] || continue
+      arch_checked=$((arch_checked + 1))
+      if [[ "${file_info}" != *"${expected_arch}"* ]]; then
+        echo "    FAIL: Wrong architecture in ${binary:t} (expected ${expected_arch})"
+        arch_errors=$((arch_errors + 1))
+        VERIFY_PASSED=false
+      fi
+    done < <(/usr/bin/find "${DMG_APP}/Contents/MacOS" \( -name "*.dylib" -o -type f -perm +111 \) -not -type d -print0 2>/dev/null)
+  fi
+  if [[ ${arch_checked} -eq 0 ]]; then
+    echo "    FAIL: No binaries found to check architecture"
+    VERIFY_PASSED=false
+  elif [[ ${arch_errors} -eq 0 ]]; then
+    echo "    PASS: All ${arch_checked} binaries and dylibs are ${expected_arch}"
   fi
 
   # 3. Duplicate dylib scan
