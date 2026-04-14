@@ -75,20 +75,21 @@ jobs:
           path: |
             ~/opt/packages
             ~/opt/source
-          key: deps-${{ hashFiles('patches/zlib-url-fix.patch', 'patches/qt-version-bump-6.10.2.patch') }}
+          key: deps-${{ hashFiles('patches/specs-updates.patch', 'patches/qt6-cmake-install.patch') }}
           restore-keys: |
             deps-
 
-      # Layer 2: Git LFS (permanent, if cache missed and LFS has deps)
-      - name: Restore deps from LFS
+      # Layer 2: Git LFS proven cache (if Actions cache missed)
+      - name: Restore deps from LFS proven cache
         if: steps.dep-cache.outputs.cache-hit != 'true'
         run: |
-          if [[ -d "lfs-deps" ]] && ls lfs-deps/*.tar.gz &>/dev/null; then
-            echo "Restoring deps from LFS..."
-            mkdir -p ~/opt/packages
-            cp lfs-deps/*.tar.gz ~/opt/packages/
+          ARCH_LABEL="arm"
+          if [[ -d "proven/${ARCH_LABEL}" ]] && ls proven/${ARCH_LABEL}/*.tar.gz &>/dev/null; then
+            echo "Restoring deps from LFS proven cache (${ARCH_LABEL})..."
+            mkdir -p ~/opt/proven/${ARCH_LABEL}
+            cp proven/${ARCH_LABEL}/*.tar.gz ~/opt/proven/${ARCH_LABEL}/
           else
-            echo "No LFS deps available, will build from source."
+            echo "No LFS proven cache available, will build from source."
           fi
 
       - name: Build MKVToolNix
