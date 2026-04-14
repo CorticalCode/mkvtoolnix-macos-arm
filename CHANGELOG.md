@@ -52,7 +52,7 @@ First combined Apple Silicon + Intel release with optimized builds.
 
 ### Script hardening (2026-04-14)
 
-- 5-reviewer audit (Claude, Gemini, ChatGPT) identified 33 issues
+- Multi-reviewer audit identified 33 issues across correctness, portability, and robustness
 - All 7 P1 and 14 P2 issues fixed: set -e safety, NULL_GLOB guards, alias isolation, clone tag verification, promote validation, verification hardening
 - Shell interpreter guard, improved error trapping, INT/TERM signal handling
 
