@@ -14,6 +14,25 @@ else
   ARCH_LABEL="${MACHINE_ARCH}"
 fi
 
+function wipe_workspace {
+  echo "==> Wiping workspace (preserving proven/ and source/)..."
+
+  # Preserve list — everything else under TARGET gets removed
+  local preserve_proven="${TARGET}/proven"
+  local preserve_source="${TARGET}/source"
+
+  for item in "${TARGET}"/*; do
+    [[ "${item}" == "${preserve_proven}" ]] && continue
+    [[ "${item}" == "${preserve_source}" ]] && continue
+    echo "    Removing ${item:t}/"
+    command rm -rf "${item}"
+  done
+
+  # Recreate essential directories
+  mkdir -p "${TARGET}/include" "${TARGET}/lib" "${TARGET}/bin" "${TARGET}/packages"
+  echo "==> Workspace clean."
+}
+
 # Defaults
 TAG=""
 BUILD_MODE="auto"  # auto, full, skip-deps, only
