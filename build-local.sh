@@ -56,6 +56,7 @@ BUILD_MODE="auto"  # auto, full, promote
 WORK_DIR=${WORK_DIR:-$HOME/tmp/compile}
 TARGET=${TARGET:-$HOME/opt}
 PACKAGE_DIR="${TARGET}/packages"
+DIST_DIR="${SCRIPT_DIR}/dist"
 VERIFY_PASSED=false
 
 function usage {
@@ -98,16 +99,24 @@ if [[ -z "${TAG}" ]]; then
 fi
 VERSION=${TAG#release-}
 
-echo "==> Building MKVToolNix ${VERSION} for ${MACHINE_ARCH} (${ARCH_LABEL})"
-echo "==> Mode: ${BUILD_MODE}"
-echo "==> Work directory: ${WORK_DIR}"
-
 # Ensure required directories exist
 mkdir -p "${TARGET}/include" "${TARGET}/lib" "${PACKAGE_DIR}" "${WORK_DIR}"
 
-# Start logging — capture everything from here onward
+# Start logging — capture everything from here onward (including the build header)
 LOG_FILE="${WORK_DIR}/build-${VERSION}-$(date +%Y%m%d-%H%M%S).log"
 exec > >(tee "${LOG_FILE}") 2>&1
+
+# Write build report on exit (success or failure)
+trap '{
+  BUILD_SUMMARY="${BUILD_SUMMARY:-FAILED (script exited unexpectedly)}"
+  write_report
+  sleep 0.1  # allow tee to flush
+}' EXIT
+trap 'echo "==> Interrupted."; exit 130' INT TERM HUP
+
+echo "==> Building MKVToolNix ${VERSION} for ${MACHINE_ARCH} (${ARCH_LABEL})"
+echo "==> Mode: ${BUILD_MODE}"
+echo "==> Work directory: ${WORK_DIR}"
 echo "==> Logging to ${LOG_FILE}"
 
 # Clone upstream at the specified tag (or verify existing clone matches)
@@ -159,13 +168,16 @@ fi
 # --- Pre-build verification ---
 
 # Source the config files the same way build.sh does, to get QTVER
-# Save user overrides — config.sh unconditionally exports TARGET and other vars
+# Save our state — sourced files can disable set -e, change options, clobber vars
 _SAVED_TARGET="${TARGET}"
 _SAVED_WORK_DIR="${WORK_DIR}"
+_SAVED_OPTS=$(setopt)
 source "${CLONE_DIR}/packaging/macos/config.sh"
 test -f "${CLONE_DIR}/packaging/macos/config.local.sh" && source "${CLONE_DIR}/packaging/macos/config.local.sh"
 source "${CLONE_DIR}/packaging/macos/specs.sh"
-# Restore user overrides that config.sh may have clobbered
+# Restore our state
+eval "${_SAVED_OPTS}" 2>/dev/null
+set -e
 TARGET="${_SAVED_TARGET}"
 WORK_DIR="${_SAVED_WORK_DIR}"
 echo "==> Config: QTVER=${QTVER}, TARGET=${TARGET}, WORK_DIR=${WORK_DIR}"
@@ -502,14 +514,12 @@ fi
 
 # Handle promotion after verification
 if [[ "${BUILD_MODE}" == "promote" ]]; then
-  write_report
   do_promote
   exit 0
 fi
 
 # --- Name and copy DMG to dist/ ---
 
-DIST_DIR="${SCRIPT_DIR}/dist"
 BUILD_COUNTER_FILE="${SCRIPT_DIR}/.build-counter-${ARCH_LABEL}"
 mkdir -p "${DIST_DIR}"
 
@@ -538,5 +548,3 @@ else
   echo "==> DMG not found at expected path. Check ${WORK_DIR} for output."
   command ls -la "${WORK_DIR}"/MKVToolNix*.dmg 2>/dev/null || true
 fi
-
-write_report
