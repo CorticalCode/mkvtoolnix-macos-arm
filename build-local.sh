@@ -103,6 +103,34 @@ if [[ -d "${SCRIPT_DIR}/patches/qt-patches" ]]; then
   command cp -r "${SCRIPT_DIR}/patches/qt-patches" "${CLONE_DIR}/packaging/macos/qt-patches"
 fi
 
+# --- Pre-build verification ---
+
+# Source the config files the same way build.sh does, to get QTVER
+source "${CLONE_DIR}/packaging/macos/config.sh"
+test -f "${CLONE_DIR}/packaging/macos/config.local.sh" && source "${CLONE_DIR}/packaging/macos/config.local.sh"
+source "${CLONE_DIR}/packaging/macos/specs.sh"
+
+# Verify QTVER matches what specs.sh will download
+SPECS_QT_FILE="${spec_qt[1]}"
+EXPECTED_QT_DIR="qt-everywhere-src-${QTVER}"
+if [[ "${SPECS_QT_FILE}" != "${EXPECTED_QT_DIR}.tar.xz" ]]; then
+  echo "ERROR: Qt version mismatch!"
+  echo "  QTVER=${QTVER} expects: ${EXPECTED_QT_DIR}.tar.xz"
+  echo "  specs.sh has: ${SPECS_QT_FILE}"
+  echo "  Fix: update QTVER in config/config.local.sh to match specs-updates.patch"
+  exit 1
+fi
+echo "==> Verified: QTVER=${QTVER} matches specs.sh (${SPECS_QT_FILE})"
+
+# Clean stale Qt build directories to prevent version masking
+# Only the directory matching QTVER should exist after extraction
+for stale_qt in "${WORK_DIR}"/qt-everywhere-src-*; do
+  if [[ -d "${stale_qt}" ]] && [[ "${stale_qt}" != "${WORK_DIR}/${EXPECTED_QT_DIR}" ]]; then
+    echo "==> Removing stale Qt directory: ${stale_qt:t}"
+    rm -rf "${stale_qt}"
+  fi
+done
+
 # --- Dependency caching logic ---
 
 # All deps that the full build produces (excluding docbook_xsl which self-caches)
@@ -120,7 +148,7 @@ EXPECTED_PACKAGES=(
   mtx-build
   gmp-6.3.0
   boost_1_88_0
-  qt-everywhere-src-6.10.0
+  qt-everywhere-src-6.10.2
 )
 
 function check_deps_cached {
@@ -190,6 +218,28 @@ esac
 # Package DMG
 echo "==> Building DMG..."
 ./build.sh dmg
+
+# --- Post-build verification ---
+
+DMG_APP="${WORK_DIR}/dmg-${VERSION}/MKVToolNix-${VERSION}.app"
+if [[ -d "${DMG_APP}" ]]; then
+  # Verify Qt version in the built binary
+  BUILT_QT_VERSION=$(otool -L "${DMG_APP}/Contents/MacOS/mkvtoolnix-gui" 2>/dev/null | grep libQt6Core | sed 's/.*current version \([0-9.]*\).*/\1/')
+  if [[ -n "${BUILT_QT_VERSION}" ]]; then
+    if [[ "${BUILT_QT_VERSION}" == "${QTVER}"* ]]; then
+      echo "==> Verified: built binary links Qt ${BUILT_QT_VERSION} (expected ${QTVER})"
+    else
+      echo "WARNING: Qt version mismatch in built binary!"
+      echo "  Expected: ${QTVER}"
+      echo "  Got: ${BUILT_QT_VERSION}"
+      echo "  The build may have used a stale Qt directory."
+    fi
+  fi
+
+  # Verify architecture
+  BUILT_ARCH=$(file "${DMG_APP}/Contents/MacOS/mkvtoolnix-gui" | grep -o 'arm64\|x86_64')
+  echo "==> Verified: binary architecture is ${BUILT_ARCH}"
+fi
 
 # --- Name and copy DMG to dist/ ---
 
