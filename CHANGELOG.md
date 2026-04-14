@@ -1,6 +1,16 @@
 # Changelog
 
-## v98.0-b2026.04.1 (2026-04-14) — Current Release
+## v98.0-b2026.04.2 (2026-04-14) — Current Release
+
+Ad-hoc code signing for macOS Sequoia 15.1+ compatibility. Both Apple Silicon and Intel builds updated.
+
+**Changes:**
+- App is now ad-hoc signed (`SIGNATURE_IDENTITY="-"`) which should restore the "Open Anyway" flow on macOS Sequoia 15.1+ where completely unsigned apps are blocked
+- Previously, users on Sequoia had no way to open the app through normal macOS UI
+
+---
+
+## v98.0-b2026.04.1 (2026-04-14)
 
 First combined Apple Silicon + Intel release with optimized builds.
 
