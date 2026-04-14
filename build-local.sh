@@ -137,12 +137,22 @@ if [[ "${SPECS_QT_FILE}" != "${EXPECTED_QT_DIR}.tar.xz" ]]; then
 fi
 echo "==> Verified: QTVER=${QTVER} matches specs.sh (${SPECS_QT_FILE})"
 
-# Clean stale Qt build directories to prevent version masking
-# Only the directory matching QTVER should exist after extraction
-for stale_qt in "${WORK_DIR}"/qt-everywhere-src-*; do
-  if [[ -d "${stale_qt}" ]] && [[ "${stale_qt}" != "${WORK_DIR}/${EXPECTED_QT_DIR}" ]]; then
-    echo "==> Removing stale Qt directory: ${stale_qt:t}"
-    rm -rf "${stale_qt}"
+# Clean ALL stale build directories (not just Qt)
+echo "==> Cleaning stale build directories..."
+for stale_dir in "${WORK_DIR}"/qt-everywhere-src-* "${WORK_DIR}"/boost_* "${WORK_DIR}"/cmake-* "${WORK_DIR}"/gettext-* "${WORK_DIR}"/gmp-* "${WORK_DIR}"/flac-* "${WORK_DIR}"/libiconv-* "${WORK_DIR}"/libogg-* "${WORK_DIR}"/libvorbis-* "${WORK_DIR}"/zlib-* "${WORK_DIR}"/autoconf-* "${WORK_DIR}"/automake-* "${WORK_DIR}"/pkg-config-* "${WORK_DIR}"/cmark-*; do
+  if [[ -d "${stale_dir}" ]]; then
+    dir_name="${stale_dir:t}"
+    is_expected=false
+    for pkg in "${EXPECTED_PACKAGES[@]}"; do
+      if [[ "${dir_name}" == "${pkg}"* ]]; then
+        is_expected=true
+        break
+      fi
+    done
+    if [[ "${is_expected}" == false ]]; then
+      echo "    Removing stale: ${dir_name}"
+      command rm -rf "${stale_dir}"
+    fi
   fi
 done
 
