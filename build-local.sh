@@ -115,7 +115,15 @@ git checkout -- .
 for patch in "${SCRIPT_DIR}"/patches/*.patch; do
   [[ -f "${patch}" ]] || continue
   echo "    Applying ${patch:t}..."
-  git apply --check "${patch}" 2>/dev/null && git apply "${patch}" || echo "    (already applied or skipped)"
+  if git apply --check "${patch}" 2>/dev/null; then
+    git apply "${patch}"
+  elif git apply --reverse --check "${patch}" 2>/dev/null; then
+    echo "    (already applied)"
+  else
+    echo "ERROR: Patch failed to apply: ${patch:t}"
+    echo "  Not applicable forward or in reverse — may be outdated or broken"
+    exit 1
+  fi
 done
 
 # Copy Qt source patches (applied by upstream build.sh via qt-patches/ mechanism)
