@@ -31,7 +31,7 @@ cd mkvtoolnix-gui-macos
 
 The DMG will be at `~/tmp/compile/MKVToolNix-98.0.dmg`.
 
-Use `--full` to force a complete rebuild from source. Use `--promote` after testing to save dependencies for future builds.
+Use `--full` to force a complete rebuild from source. See [docs/proven-cache.md](docs/proven-cache.md) for how to reuse cached dependencies on subsequent builds.
 
 ## What this repo contains
 
