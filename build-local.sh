@@ -271,9 +271,14 @@ function do_promote {
   fi
 
   # Step 2: Build new proven set in temp directory
+  local pkg_files=("${packages_dir}"/*.tar.gz)
+  if [[ ${#pkg_files[@]} -eq 0 ]]; then
+    echo "ERROR: No packages found in ${packages_dir} — cannot promote."
+    exit 1
+  fi
   local proven_new="${TARGET}/proven-${ARCH_LABEL}-new"
   mkdir -p "${proven_new}"
-  command cp "${packages_dir}"/*.tar.gz "${proven_new}/"
+  command cp "${pkg_files[@]}" "${proven_new}/"
 
   # Step 3: Atomic swap — clean up stale old dir first to prevent nesting
   command rm -rf "${TARGET}/proven-${ARCH_LABEL}-old"
@@ -328,7 +333,8 @@ case "${BUILD_MODE}" in
     ./build.sh
     ;;
   promote)
-    if [[ ! -d "${TARGET}/packages" ]] || ! ls "${TARGET}/packages"/*.tar.gz &>/dev/null; then
+    local promote_pkgs=("${TARGET}/packages"/*.tar.gz)
+    if [[ ! -d "${TARGET}/packages" ]] || [[ ${#promote_pkgs[@]} -eq 0 ]]; then
       echo "ERROR: No build packages found. Build first, then promote."
       exit 1
     fi
@@ -362,8 +368,14 @@ if [[ "${BUILD_MODE}" != "promote" ]]; then
 
   # Archive docbook-xsl if not already in packages
   if [[ -d "${TARGET}/xsl-stylesheets" ]] && [[ ! -f "${TARGET}/packages/docbook-xsl.tar.gz" ]]; then
-    echo "==> Archiving docbook-xsl..."
-    (cd "${TARGET}" && tar czf "${TARGET}/packages/docbook-xsl.tar.gz" xsl-stylesheets docbook-xsl-*)
+    local docbook_dirs=("${TARGET}"/docbook-xsl-*)
+    if [[ ${#docbook_dirs[@]} -gt 0 ]]; then
+      echo "==> Archiving docbook-xsl..."
+      (cd "${TARGET}" && tar czf "${TARGET}/packages/docbook-xsl.tar.gz" xsl-stylesheets "${docbook_dirs[@]:t}")
+    else
+      echo "WARNING: xsl-stylesheets exists but no docbook-xsl-* directories found — archive may be incomplete"
+      (cd "${TARGET}" && tar czf "${TARGET}/packages/docbook-xsl.tar.gz" xsl-stylesheets)
+    fi
   fi
 
   # Package DMG
@@ -493,7 +505,7 @@ if [[ -f "${DMG_PATH}" ]]; then
   echo "    Distribution: ${DIST_DIR}/${DMG_NAME}"
 else
   echo "==> DMG not found at expected path. Check ${WORK_DIR} for output."
-  ls -la "${WORK_DIR}"/MKVToolNix*.dmg 2>/dev/null || true
+  command ls -la "${WORK_DIR}"/MKVToolNix*.dmg 2>/dev/null || true
 fi
 
 write_report
