@@ -7,3 +7,11 @@ export DRAKETHREADS=12
 # Qt version — MUST match the version in specs-updates.patch
 # If you bump Qt, update both this and the patch
 export QTVER=6.10.2
+
+# Optimization flags — upstream sets no -O level in CFLAGS/CXXFLAGS,
+# so autotools deps (Boost, FLAC, libogg, etc.) build at -O0 by default.
+# -O2 is the standard release optimization. -dead_strip removes unreachable
+# code at link time (complements the strip -x in build_dmg).
+export CFLAGS="${CFLAGS} -O2"
+export CXXFLAGS="${CXXFLAGS} -O2"
+export LDFLAGS="${LDFLAGS} -Wl,-dead_strip"
