@@ -19,6 +19,9 @@ build/
 # Release outputs (clean-named DMGs ready to upload)
 release/
 
+# Build logs
+logs/
+
 # Build counters (local state)
 .build-counter
 .build-counter-*

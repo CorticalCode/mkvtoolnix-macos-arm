@@ -6,16 +6,20 @@ Critical fix for Homebrew library leak that caused DYLD crashes on launch.
 
 **What was broken:** Qt was linking against Homebrew system libraries (double-conversion, pcre2, zstd, libpng, md4c, freetype) instead of its bundled copies. Any user without those same Homebrew packages would get a "library not loaded" crash. All previous builds were affected.
 
-**Fix (ARM):** Removed `-force-pkg-config` and `-pkg-config` from Qt configure, restoring Qt 6's default macOS behavior where Homebrew prefixes are excluded from library search paths.
-
-**Fix (Intel):** Added `-force-bundled-libs` to Qt configure, forcing Qt to use its bundled third-party libraries, and `-no-feature-zstd` to disable zstd (not bundled by Qt).
+**Fix (belt and suspenders):**
+- Removed `-force-pkg-config` and `-pkg-config` from Qt configure, restoring Qt 6's default macOS behavior where Homebrew prefixes are excluded from library search paths
+- Added `-force-bundled-libs` to force Qt's bundled third-party libraries, and `-no-feature-zstd` to disable zstd (not bundled by Qt, falls back to zlib)
 
 **Downloads:**
-- Apple Silicon (arm64): 77 MB app, 36 MB DMG
-- Intel (x86_64): 78 MB app, 38 MB DMG
+- Apple Silicon (arm64): 77.3 MB app, 36 MB DMG
+- Intel (x86_64): 81.9 MB app, 38 MB DMG
 
 **Build system improvements:**
 - Post-build Homebrew/external library leak detection (scans all dylibs for non-system references)
+- App size verification now uses actual file bytes (decimal MB) to match Finder
+- Build timing (start, finish, elapsed) added to build reports
+- Build logs copied to `logs/` directory with build number
+- Internal DMG filename reordered: build number before branch name for chronological sorting
 - Workspace cleanup now includes compile directory to prevent stale build failures
 - Output directories renamed: `dist/` → `build/` (internal) + `release/` (clean-named)
 

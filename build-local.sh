@@ -45,11 +45,12 @@ function wipe_workspace {
     command rm -rf "${item}"
   done
 
-  # Clean WORK_DIR (~/tmp/compile/) — preserve upstream clone (managed separately)
+  # Clean WORK_DIR (~/tmp/compile/) — preserve upstream clone and active log
   local preserve_clone="${WORK_DIR}/mkvtoolnix-src"
 
   for item in "${WORK_DIR}"/*; do
     [[ "${item}" == "${preserve_clone}" ]] && continue
+    [[ "${item}" == "${LOG_FILE}" ]] && continue
     echo "    Removing ${item:t}"
     command rm -rf "${item}"
   done
@@ -116,13 +117,20 @@ mkdir -p "${TARGET}/include" "${TARGET}/lib" "${PACKAGE_DIR}" "${WORK_DIR}"
 # Start logging — capture everything from here onward (including the build header)
 LOG_FILE="${WORK_DIR}/build-${VERSION}-$(date +%Y%m%d-%H%M%S).log"
 exec > >(tee "${LOG_FILE}") 2>&1
+BUILD_START_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+SECONDS=0
 
 # Build report function (defined early so EXIT trap can use it on any failure)
 function write_report {
   local report_file="${WORK_DIR}/build-report-${VERSION}.txt"
   {
+    local elapsed=$SECONDS
+    local mins=$((elapsed / 60))
+    local secs=$((elapsed % 60))
     echo "Build Report: MKVToolNix ${VERSION}"
-    echo "Date: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "Started: ${BUILD_START_TIME}"
+    echo "Finished: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "Elapsed: ${mins}m $(printf '%02d' ${secs})s"
     echo "Architecture: ${MACHINE_ARCH} (${ARCH_LABEL})"
     echo "Mode: ${BUILD_MODE}"
     echo "Build: ${BUILD_SUMMARY:-unknown}"
@@ -133,7 +141,8 @@ function write_report {
     echo ""
     [[ -n "${DMG_RELEASE_NAME}" ]] && echo "Release: ${RELEASE_DIR}/${DMG_RELEASE_NAME}"
     [[ -n "${DMG_NAME}" ]] && echo "Internal: ${BUILD_DIR}/${DMG_NAME}"
-    echo "Log: ${LOG_FILE}"
+    [[ -n "${LOG_NAME}" ]] && echo "Log: ${LOG_DIR}/${LOG_NAME}"
+    echo "Build log: ${LOG_FILE}"
   } > "${report_file}"
   echo "==> Build report: ${report_file}"
 }
@@ -491,15 +500,15 @@ if [[ -d "${DMG_APP}" ]]; then
     echo "    PASS: No duplicate dylib versions"
   fi
 
-  # 4. Size sanity check
-  app_size=$(command du -sk "${DMG_APP}" 2>/dev/null | awk '{print $1}')
-  size_mb=$((app_size / 1024))
+  # 4. Size sanity check (decimal MB to match Finder)
+  app_bytes=$(/usr/bin/find "${DMG_APP}" -type f -exec /usr/bin/stat -f '%z' {} + 2>/dev/null | awk '{s+=$1} END {print s}')
+  size_mb=$(echo "${app_bytes}" | awk '{printf "%.1f", $1/1000/1000}')
   min_size=60  # MB — below this something is missing
   max_size=95  # MB — above this something is duplicated
-  if [[ ${size_mb} -lt ${min_size} ]]; then
+  if (( $(echo "${size_mb} < ${min_size}" | bc -l) )); then
     echo "    FAIL: App is ${size_mb} MB — suspiciously small (expected ${min_size}-${max_size} MB)"
     VERIFY_PASSED=false
-  elif [[ ${size_mb} -gt ${max_size} ]]; then
+  elif (( $(echo "${size_mb} > ${max_size}" | bc -l) )); then
     echo "    FAIL: App is ${size_mb} MB — suspiciously large (expected ${min_size}-${max_size} MB)"
     VERIFY_PASSED=false
   else
@@ -552,7 +561,8 @@ fi
 # --- Name and copy DMG ---
 
 BUILD_COUNTER_FILE="${SCRIPT_DIR}/.build-counter-${ARCH_LABEL}"
-mkdir -p "${BUILD_DIR}" "${RELEASE_DIR}"
+LOG_DIR="${SCRIPT_DIR}/logs"
+mkdir -p "${BUILD_DIR}" "${RELEASE_DIR}" "${LOG_DIR}"
 
 DMG_PATH="${WORK_DIR}/MKVToolNix-${VERSION}.dmg"
 
@@ -570,14 +580,18 @@ if [[ -f "${DMG_PATH}" ]]; then
   [[ "${BRANCH}" == "HEAD" ]] && BRANCH=$(cd "${SCRIPT_DIR}" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")
   BRANCH="${BRANCH//\//-}"
 
-  DMG_NAME="MKVToolNix-${VERSION}-macos-${ARCH_LABEL}-${BRANCH}-b$(printf '%03d' ${BUILD_NUM}).dmg"
+  BUILD_LABEL="b$(printf '%03d' ${BUILD_NUM})"
+  DMG_NAME="MKVToolNix-${VERSION}-macos-${ARCH_LABEL}-${BUILD_LABEL}-${BRANCH}.dmg"
   DMG_RELEASE_NAME="MKVToolNix-${VERSION}-macos-${ARCH_LABEL}.dmg"
+  LOG_NAME="MKVToolNix-${VERSION}-macos-${ARCH_LABEL}-${BUILD_LABEL}-${BRANCH}.log"
   command cp "${DMG_PATH}" "${BUILD_DIR}/${DMG_NAME}"
   command cp "${DMG_PATH}" "${RELEASE_DIR}/${DMG_RELEASE_NAME}"
+  command cp "${LOG_FILE}" "${LOG_DIR}/${LOG_NAME}"
   echo "==> Done!"
   echo "    Build output: ${DMG_PATH}"
   echo "    Internal: ${BUILD_DIR}/${DMG_NAME}"
   echo "    Release:  ${RELEASE_DIR}/${DMG_RELEASE_NAME}"
+  echo "    Log:      ${LOG_DIR}/${LOG_NAME}"
 else
   echo "==> DMG not found at expected path. Check ${WORK_DIR} for output."
   command ls -la "${WORK_DIR}"/MKVToolNix*.dmg 2>/dev/null || true
