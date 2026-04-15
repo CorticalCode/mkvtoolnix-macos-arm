@@ -56,7 +56,8 @@ BUILD_MODE="auto"  # auto, full, promote
 WORK_DIR=${WORK_DIR:-$HOME/tmp/compile}
 TARGET=${TARGET:-$HOME/opt}
 PACKAGE_DIR="${TARGET}/packages"
-DIST_DIR="${SCRIPT_DIR}/dist"
+BUILD_DIR="${SCRIPT_DIR}/build"
+RELEASE_DIR="${SCRIPT_DIR}/release"
 VERIFY_PASSED=false
 
 function usage {
@@ -121,7 +122,8 @@ function write_report {
     [[ -n "${BUILT_QT_VERSION}" ]] && echo "Qt version: ${BUILT_QT_VERSION} (expected ${QTVER})"
     [[ -n "${size_mb}" ]] && echo "App size: ${size_mb} MB"
     echo ""
-    [[ -n "${DMG_NAME}" ]] && echo "DMG: ${DIST_DIR}/${DMG_NAME}"
+    [[ -n "${DMG_RELEASE_NAME}" ]] && echo "Release: ${RELEASE_DIR}/${DMG_RELEASE_NAME}"
+    [[ -n "${DMG_NAME}" ]] && echo "Internal: ${BUILD_DIR}/${DMG_NAME}"
     echo "Log: ${LOG_FILE}"
   } > "${report_file}"
   echo "==> Build report: ${report_file}"
@@ -523,10 +525,10 @@ if [[ "${BUILD_MODE}" == "promote" ]]; then
   exit 0
 fi
 
-# --- Name and copy DMG to dist/ ---
+# --- Name and copy DMG ---
 
 BUILD_COUNTER_FILE="${SCRIPT_DIR}/.build-counter-${ARCH_LABEL}"
-mkdir -p "${DIST_DIR}"
+mkdir -p "${BUILD_DIR}" "${RELEASE_DIR}"
 
 DMG_PATH="${WORK_DIR}/MKVToolNix-${VERSION}.dmg"
 
@@ -545,10 +547,13 @@ if [[ -f "${DMG_PATH}" ]]; then
   BRANCH="${BRANCH//\//-}"
 
   DMG_NAME="MKVToolNix-${VERSION}-macos-${ARCH_LABEL}-${BRANCH}-b$(printf '%03d' ${BUILD_NUM}).dmg"
-  command cp "${DMG_PATH}" "${DIST_DIR}/${DMG_NAME}"
+  DMG_RELEASE_NAME="MKVToolNix-${VERSION}-macos-${ARCH_LABEL}.dmg"
+  command cp "${DMG_PATH}" "${BUILD_DIR}/${DMG_NAME}"
+  command cp "${DMG_PATH}" "${RELEASE_DIR}/${DMG_RELEASE_NAME}"
   echo "==> Done!"
   echo "    Build output: ${DMG_PATH}"
-  echo "    Distribution: ${DIST_DIR}/${DMG_NAME}"
+  echo "    Internal: ${BUILD_DIR}/${DMG_NAME}"
+  echo "    Release:  ${RELEASE_DIR}/${DMG_RELEASE_NAME}"
 else
   echo "==> DMG not found at expected path. Check ${WORK_DIR} for output."
   command ls -la "${WORK_DIR}"/MKVToolNix*.dmg 2>/dev/null || true

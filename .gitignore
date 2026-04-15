@@ -13,8 +13,11 @@ rules
 /
 *
 
-# Distribution outputs (DMGs)
-dist/
+# Build outputs (internal DMGs with branch+counter names)
+build/
+
+# Release outputs (clean-named DMGs ready to upload)
+release/
 
 # Build counters (local state)
 .build-counter
