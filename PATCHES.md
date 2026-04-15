@@ -117,7 +117,7 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 ---
 
-### 7. Force Qt bundled libraries (`patches/qt-force-bundled-libs.patch`)
+### 7. Fix Homebrew library leak in Qt build (`patches/qt-fix-homebrew-leak.patch`)
 
 **File patched:** `packaging/macos/build.sh` (build_qt function args)
 
@@ -125,14 +125,13 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 **Root cause:** The upstream `build_qt` args include `-force-pkg-config -pkg-config`, which re-enables system library discovery on macOS. Qt 6 intentionally disables this on Darwin to avoid package-manager contamination, but the upstream build script overrides the safeguard. When Homebrew has matching `.pc` files or cmake config, Qt's configure finds and links against them instead of its bundled `qtbase/src/3rdparty/` copies.
 
-**Fix:**
-- Remove `-force-pkg-config` (redundant alias for `-pkg-config`)
-- Add `-force-bundled-libs` (forces Qt's bundled copies of double-conversion, pcre2, freetype, libpng, md4c, harfbuzz)
-- Add `-no-feature-zstd` (zstd is not bundled by Qt; falls back to zlib compression)
+**Fix (belt and suspenders):**
+- Remove both `-force-pkg-config` and `-pkg-config`, restoring Qt 6's default macOS behavior where Homebrew prefixes are stripped from cmake's search paths
+- Add `-force-bundled-libs` (forces Qt's bundled copies) and `-no-feature-zstd` (zstd is not bundled by Qt; falls back to zlib compression)
 
 **Scope:** Every build from b001 through b010 (ARM) and b001-b002 (Intel) was affected. Not caught because testing was on the build machines which have the same Homebrew packages.
 
-**Reported by:** Ryu67 and Vek239 on the MKVToolNix forum, 2026-04-15.
+**Reported by:** Adam, Ryu67, and Vek239 on the MKVToolNix forum, 2026-04-15.
 
 **Should be filed upstream:** Yes — Codeberg issue for `-force-pkg-config` behavior in the macOS build script.
 
