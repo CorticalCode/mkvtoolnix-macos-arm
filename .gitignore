@@ -22,9 +22,7 @@ release/
 # Build logs
 logs/
 
-# Build counters (local state)
-.build-counter
-.build-counter-*
+# macOS
 # macOS
 .DS_Store
 **/.DS_Store
