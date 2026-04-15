@@ -1,0 +1,14 @@
+diff --git a/packaging/macos/build.sh b/packaging/macos/build.sh
+index 58d8159..cda6041 100755
+--- a/packaging/macos/build.sh
++++ b/packaging/macos/build.sh
+@@ -323,9 +323,6 @@ function build_qt {
+     -opensource
+     -confirm-license
+     -release
+-    -force-pkg-config
+-    -pkg-config
+-
+     -nomake benchmarks
+     -nomake examples
+     -nomake tests

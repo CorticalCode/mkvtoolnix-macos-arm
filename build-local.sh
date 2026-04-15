@@ -497,7 +497,22 @@ if [[ -d "${DMG_APP}" ]]; then
     echo "    PASS: App size ${size_mb} MB (expected range ${min_size}-${max_size} MB)"
   fi
 
-  # 5. Bundle inventory
+  # 5. Homebrew / external library leak detection
+  leak_found=false
+  for lib in "${DMG_APP}/Contents/MacOS/libs/"*.dylib "${DMG_APP}/Contents/MacOS/"mkvtoolnix-gui; do
+    leaks=$(otool -L "$lib" 2>/dev/null | grep -E "/opt/homebrew|/usr/local/opt")
+    if [[ -n "$leaks" ]]; then
+      echo "    FAIL: External library reference in $(basename $lib):"
+      echo "$leaks" | while read -r line; do echo "      $line"; done
+      leak_found=true
+      VERIFY_PASSED=false
+    fi
+  done
+  if [[ "$leak_found" == false ]]; then
+    echo "    PASS: No Homebrew/external library references"
+  fi
+
+  # 6. Bundle inventory
   echo "    --- Bundle inventory ---"
   /usr/bin/find "${DMG_APP}/Contents/MacOS/libs" -name "*.dylib" -not -type l 2>/dev/null | while read -r lib; do
     echo "    $(basename "${lib}")"

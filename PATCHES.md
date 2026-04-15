@@ -23,7 +23,7 @@ Current release: **v98.0-b2026.04.1** (Apple Silicon + Intel). The build process
 
 ---
 
-## Active patches (5 build patches + 1 Qt source patch)
+## Active patches (6 build patches + 1 Qt source patch)
 
 ### 1. Qt6 cmake install (`patches/qt6-cmake-install.patch`)
 
@@ -117,6 +117,22 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 ---
 
+### 7. Remove pkg-config from Qt build (`patches/qt-remove-pkg-config.patch`)
+
+**File patched:** `packaging/macos/build.sh` (build_qt function args)
+
+**Problem:** Same as the Homebrew library leak — Qt links against system libraries instead of bundled copies, causing DYLD crashes on clean machines.
+
+**Root cause:** Qt 6 intentionally disables pkg-config on macOS and removes `/opt/homebrew` and `/usr/local` from cmake search paths. The upstream `build_qt` args `-force-pkg-config -pkg-config` override this safeguard, re-enabling Homebrew prefix discovery.
+
+**Fix:** Remove both `-force-pkg-config` and `-pkg-config` entirely. This restores Qt's macOS default behavior where Homebrew prefixes are stripped from cmake's search paths. Qt finds locally-built deps (zlib, etc.) via `CMAKE_PREFIX_PATH` / `--prefix` instead of pkg-config.
+
+**Approach note:** This is the more principled fix (Approach B). It prevents the entire class of Homebrew leaks rather than forcing bundled copies of specific libraries. Being tested alongside Approach A (`qt-force-bundled-libs.patch`) which is more conservative.
+
+**Source:** ChatGPT analysis of Qt 6's `QtBuildRepoHelpers.cmake` — confirmed Qt deliberately strips package-manager prefixes on Darwin when pkg-config is disabled.
+
+---
+
 ## Config overlay (`config/config.local.sh`)
 
 **Not a patch** -- a config file sourced by the upstream build system.
@@ -137,7 +153,7 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 **Promotion workflow:** After a successful build and manual testing, `--promote` archives the current proven cache to Git LFS, atomically swaps in the new packages, and commits. Uses directory-swap for atomicity — interruption at any point leaves either old or new proven intact.
 
-**Post-build verification:** Checks Qt version in binary, architecture of all binaries and dylibs, duplicate dylib scan, size sanity (60-95 MB range), and bundle inventory. Promotion is blocked if verification fails.
+**Post-build verification:** Checks Qt version in binary, architecture of all binaries and dylibs, duplicate dylib scan, size sanity (60-95 MB range), Homebrew/external library leak detection, and bundle inventory. Promotion is blocked if verification fails.
 
 **Pre-build verification:** QTVER/specs.sh consistency check (already existed), stale build directory cleanup for all 14 dependencies (extended from Qt-only).
 
