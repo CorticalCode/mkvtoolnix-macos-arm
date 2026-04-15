@@ -10,7 +10,7 @@ The MKVToolNix developer no longer provides macOS binaries. The CLI tools (`mkvm
 
 Grab the latest `.dmg` for your architecture from [Releases](../../releases):
 
-- **Apple Silicon** (M1/M2/M3/M4): `MKVToolNix-{version}-macos-apple-silicon.dmg`
+- **Apple Silicon** (M1/M2/M3/M4): `MKVToolNix-{version}-macos-arm.dmg`
 - **Intel**: `MKVToolNix-{version}-macos-intel.dmg`
 
 These are separate architecture-specific builds, not a universal binary. Make sure to download the correct version for your Mac. Installing the wrong architecture will produce an error on launch.
