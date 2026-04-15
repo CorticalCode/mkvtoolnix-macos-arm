@@ -500,7 +500,7 @@ if [[ -d "${DMG_APP}" ]]; then
   # 5. Homebrew / external library leak detection
   leak_found=false
   for lib in "${DMG_APP}/Contents/MacOS/libs/"*.dylib "${DMG_APP}/Contents/MacOS/"mkvtoolnix-gui; do
-    leaks=$(otool -L "$lib" 2>/dev/null | grep -E "/opt/homebrew|/usr/local/opt")
+    leaks=$(otool -L "$lib" 2>/dev/null | grep -E "/opt/homebrew|/usr/local/opt" || true)
     if [[ -n "$leaks" ]]; then
       echo "    FAIL: External library reference in $(basename $lib):"
       echo "$leaks" | while read -r line; do echo "      $line"; done
