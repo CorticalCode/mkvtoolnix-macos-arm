@@ -32,9 +32,9 @@ fi
 echo "==> Shell: zsh ${ZSH_VERSION}, arch: ${MACHINE_ARCH} (${ARCH_LABEL})"
 
 function wipe_workspace {
-  echo "==> Wiping workspace (preserving proven/ and source/)..."
+  echo "==> Wiping workspace (preserving proven/, source/, and upstream clone)..."
 
-  # Preserve list — everything else under TARGET gets removed
+  # Clean TARGET (~/opt/) — preserve proven cache and source tarballs
   local preserve_proven="${TARGET}/proven"
   local preserve_source="${TARGET}/source"
 
@@ -42,6 +42,15 @@ function wipe_workspace {
     [[ "${item}" == "${preserve_proven}" ]] && continue
     [[ "${item}" == "${preserve_source}" ]] && continue
     echo "    Removing ${item:t}/"
+    command rm -rf "${item}"
+  done
+
+  # Clean WORK_DIR (~/tmp/compile/) — preserve upstream clone (managed separately)
+  local preserve_clone="${WORK_DIR}/mkvtoolnix-src"
+
+  for item in "${WORK_DIR}"/*; do
+    [[ "${item}" == "${preserve_clone}" ]] && continue
+    echo "    Removing ${item:t}"
     command rm -rf "${item}"
   done
 
