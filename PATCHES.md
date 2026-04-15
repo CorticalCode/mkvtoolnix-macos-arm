@@ -4,7 +4,7 @@ Living document tracking every modification made to build MKVToolNix on macOS (A
 
 ## Build status
 
-Current release: **v98.0-b2026.04.1** (Apple Silicon + Intel). The build process uses a proven cache architecture with per-architecture storage: dependencies are compiled once, verified, and promoted to a cache. Subsequent builds restore from cache and only rebuild mkvtoolnix. See the "Build script fixes" section below for details.
+Current release: **v98.0-b2026.04.3** (Apple Silicon + Intel). The build process uses a proven cache architecture with per-architecture storage: dependencies are compiled once, verified, and promoted to a cache. Subsequent builds restore from cache and only rebuild mkvtoolnix. See the "Build script fixes" section below for details.
 
 ## Size progression
 
