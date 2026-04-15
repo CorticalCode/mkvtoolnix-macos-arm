@@ -11,8 +11,8 @@ Critical fix for Homebrew library leak that caused DYLD crashes on launch.
 - Added `-force-bundled-libs` to force Qt's bundled third-party libraries, and `-no-feature-zstd` to disable zstd (not bundled by Qt, falls back to zlib)
 
 **Downloads:**
-- Apple Silicon (arm64): 77.3 MB app, 36 MB DMG
-- Intel (x86_64): 81.9 MB app, 38 MB DMG
+- Apple Silicon (arm64): `MKVToolNix-98.0-macos-apple-silicon.dmg` — 77.3 MB app, 36 MB DMG
+- Intel (x86_64): `MKVToolNix-98.0-macos-intel.dmg` — 81.9 MB app, 38 MB DMG
 
 **Build system improvements:**
 - Post-build Homebrew/external library leak detection (scans all dylibs for non-system references)
