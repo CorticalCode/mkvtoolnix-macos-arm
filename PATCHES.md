@@ -23,7 +23,7 @@ Current release: **v98.0-b2026.04.1** (Apple Silicon + Intel). The build process
 
 ---
 
-## Active patches (5 build patches + 1 Qt source patch)
+## Active patches (6 build patches + 1 Qt source patch)
 
 ### 1. Qt6 cmake install (`patches/qt6-cmake-install.patch`)
 
@@ -117,6 +117,27 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 ---
 
+### 7. Force Qt bundled libraries (`patches/qt-force-bundled-libs.patch`)
+
+**File patched:** `packaging/macos/build.sh` (build_qt function args)
+
+**Problem:** Qt links against Homebrew system libraries (double-conversion, pcre2, zstd, libpng, md4c, freetype) instead of its bundled copies. Users without those Homebrew packages get a DYLD crash on launch: `Library not loaded: /opt/homebrew/libdouble-conversion.3.dylib`.
+
+**Root cause:** The upstream `build_qt` args include `-force-pkg-config -pkg-config`, which re-enables system library discovery on macOS. Qt 6 intentionally disables this on Darwin to avoid package-manager contamination, but the upstream build script overrides the safeguard. When Homebrew has matching `.pc` files or cmake config, Qt's configure finds and links against them instead of its bundled `qtbase/src/3rdparty/` copies.
+
+**Fix:**
+- Remove `-force-pkg-config` (redundant alias for `-pkg-config`)
+- Add `-force-bundled-libs` (forces Qt's bundled copies of double-conversion, pcre2, freetype, libpng, md4c, harfbuzz)
+- Add `-no-feature-zstd` (zstd is not bundled by Qt; falls back to zlib compression)
+
+**Scope:** Every build from b001 through b010 (ARM) and b001-b002 (Intel) was affected. Not caught because testing was on the build machines which have the same Homebrew packages.
+
+**Reported by:** Ryu67 and Vek239 on the MKVToolNix forum, 2026-04-15.
+
+**Should be filed upstream:** Yes — Codeberg issue for `-force-pkg-config` behavior in the macOS build script.
+
+---
+
 ## Config overlay (`config/config.local.sh`)
 
 **Not a patch** -- a config file sourced by the upstream build system.
@@ -137,7 +158,7 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 **Promotion workflow:** After a successful build and manual testing, `--promote` archives the current proven cache to Git LFS, atomically swaps in the new packages, and commits. Uses directory-swap for atomicity — interruption at any point leaves either old or new proven intact.
 
-**Post-build verification:** Checks Qt version in binary, architecture of all binaries and dylibs, duplicate dylib scan, size sanity (60-95 MB range), and bundle inventory. Promotion is blocked if verification fails.
+**Post-build verification:** Checks Qt version in binary, architecture of all binaries and dylibs, duplicate dylib scan, size sanity (60-95 MB range), Homebrew/external library leak detection, and bundle inventory. Promotion is blocked if verification fails.
 
 **Pre-build verification:** QTVER/specs.sh consistency check (already existed), stale build directory cleanup for all 14 dependencies (extended from Qt-only).
 
