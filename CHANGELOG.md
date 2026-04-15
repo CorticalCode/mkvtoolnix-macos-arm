@@ -23,6 +23,16 @@ Critical fix for Homebrew library leak that caused DYLD crashes on launch.
 - Workspace cleanup now includes compile directory to prevent stale build failures
 - Output directories renamed: `dist/` → `build/` (internal) + `release/` (clean-named)
 
+**Verified:** Tested in a clean virtual machine — previous builds crash on launch, updated builds run without issues.
+
+**Filed upstream:** [Codeberg #6208](https://codeberg.org/mbunkus/mkvtoolnix/issues/6208)
+
+**Upstream news:** Patches #6205, #6206, #6207 (Qt6 cmake install, debug symbol stripping, cmark optimization) were merged into upstream MKVToolNix v99.0.
+
+**Other improvements:**
+- CI workflow updated: CalVer tagging, `apple-silicon` filename convention, leak detection in verification
+- DMG release filenames standardized to `apple-silicon` / `intel`
+
 **Reported by:** Adam, Ryu67, and Vek239 on the MKVToolNix forum.
 
 ---
