@@ -1,4 +1,4 @@
-name: Build MKVToolNix macOS ARM64
+name: Build MKVToolNix macOS
 
 on:
   schedule:
@@ -75,7 +75,7 @@ jobs:
           path: |
             ~/opt/packages
             ~/opt/source
-          key: deps-${{ hashFiles('patches/specs-updates.patch', 'patches/qt6-cmake-install.patch') }}
+          key: deps-${{ hashFiles('patches/*.patch') }}
           restore-keys: |
             deps-
 
@@ -96,37 +96,66 @@ jobs:
         run: ./build-local.sh "${TAG}"
         timeout-minutes: 180
 
-      - name: Rename DMG
+      - name: Rename DMG for release
         run: |
           mv ~/tmp/compile/MKVToolNix-${VERSION}.dmg \
-             ~/tmp/compile/MKVToolNix-${VERSION}-macos-arm.dmg
+             ~/tmp/compile/MKVToolNix-${VERSION}-macos-apple-silicon.dmg
+
+      - name: Determine CalVer tag
+        id: calver
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          YEAR=$(date +%Y)
+          MONTH=$(date +%m)
+          # Find highest existing sequence number for this version+month
+          SEQ=$(gh release list --repo "${{ github.repository }}" --limit 50 \
+            | grep -oP "v${VERSION}-b${YEAR}\.${MONTH}\.\K[0-9]+" \
+            | sort -rn | head -1 || echo "0")
+          SEQ=$((${SEQ:-0} + 1))
+          TAG_NAME="v${VERSION}-b${YEAR}.${MONTH}.${SEQ}"
+          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+          echo "CalVer tag: ${TAG_NAME}"
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v${VERSION}-arm64" \
+          CALVER="${{ steps.calver.outputs.tag_name }}"
+          gh release create "${CALVER}" \
             --repo "${{ github.repository }}" \
-            --title "MKVToolNix ${VERSION} — macOS ARM" \
+            --title "MKVToolNix ${VERSION} — macOS (${CALVER})" \
             --notes "$(cat <<NOTES
-          Unofficial macOS ARM64 build of [MKVToolNix ${VERSION}](https://mkvtoolnix.download/).
+          Unofficial macOS build of [MKVToolNix ${VERSION}](https://mkvtoolnix.download/).
 
-          Built from upstream tag \`${TAG}\` on macOS ARM64 (Apple Silicon).
+          ## Downloads
 
-          **Automated build.** This release was built and published by CI without manual testing. Post-build verification (Qt version, architecture, duplicate dylibs, app size) passed automatically. If you encounter issues, please [report them](https://github.com/${{ github.repository }}/issues).
+          | Architecture | File |
+          |-------------|------|
+          | Apple Silicon (arm64) | \`MKVToolNix-${VERSION}-macos-apple-silicon.dmg\` |
+
+          Not sure which? Apple menu > About This Mac. "Apple M_" = Apple Silicon, "Intel Core" = Intel.
+
+          ## Build Details
+
+          - **Upstream:** MKVToolNix ${VERSION} (\`${TAG}\`)
+          - **Target:** macOS 13+
+
+          **Automated build.** This release was built and published by CI without manual testing. Post-build verification (Qt version, architecture, duplicate dylibs, Homebrew library leak detection, app size) passed automatically. If you encounter issues, please [report them](https://github.com/${{ github.repository }}/issues).
+
+          ## Installation
 
           **Not signed or notarized.** To open: right-click the app > Open, or run:
           \`\`\`
           xattr -cr /Applications/MKVToolNix*.app
           \`\`\`
 
-          See [PATCHES.md](https://github.com/${{ github.repository }}/blob/main/PATCHES.md) for build patches.
-          See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for build history.
-
-          Source: https://codeberg.org/mbunkus/mkvtoolnix/src/tag/${TAG}
+          [Build patches](https://github.com/${{ github.repository }}/blob/main/PATCHES.md) |
+          [Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) |
+          [Source](https://codeberg.org/mbunkus/mkvtoolnix/src/tag/${TAG})
           NOTES
           )" \
-            ~/tmp/compile/MKVToolNix-${VERSION}-macos-arm.dmg
+            ~/tmp/compile/MKVToolNix-${VERSION}-macos-apple-silicon.dmg
 
       - name: Create issue on build failure
         if: failure()
