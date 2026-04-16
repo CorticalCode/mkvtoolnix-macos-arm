@@ -27,12 +27,16 @@ Requirements: Xcode CLI tools, ~10 GB disk space, 1-3 hours (first build; subseq
 ```sh
 git clone https://github.com/corticalcode/mkvtoolnix-gui-macos.git
 cd mkvtoolnix-gui-macos
+
+# Optional: pull pre-built dependencies to skip the 1-3 hour dep build
+./build-local.sh --restore-cache
+
 ./build-local.sh release-98.0
 ```
 
 The DMG will be at `~/tmp/compile/MKVToolNix-98.0.dmg`.
 
-Use `--full` to force a complete rebuild from source. See [docs/proven-cache.md](docs/proven-cache.md) for how to reuse cached dependencies on subsequent builds.
+Use `--restore-cache` to pull pre-built dependencies from Git LFS (~15 min build). Omit it to build everything from source (~1-3 hours). Use `--full` to force a complete rebuild. See [docs/proven-cache.md](docs/proven-cache.md) for details.
 
 ## What this repo contains
 

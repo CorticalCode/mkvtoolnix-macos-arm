@@ -64,8 +64,6 @@ jobs:
       VERSION: ${{ needs.check-release.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          lfs: true
 
       # Layer 1: GitHub Actions cache (ephemeral, 7-day TTL)
       - name: Restore dependency cache
@@ -80,16 +78,26 @@ jobs:
             deps-
 
       # Layer 2: Git LFS proven cache (if Actions cache missed)
+      # .lfsconfig excludes proven/ from auto-download, so we pull explicitly
       - name: Restore deps from LFS proven cache
         if: steps.dep-cache.outputs.cache-hit != 'true'
         run: |
           ARCH_LABEL="arm"
-          if [[ -d "proven/${ARCH_LABEL}" ]] && ls proven/${ARCH_LABEL}/*.tar.gz &>/dev/null; then
-            echo "Restoring deps from LFS proven cache (${ARCH_LABEL})..."
-            mkdir -p ~/opt/proven/${ARCH_LABEL}
-            cp proven/${ARCH_LABEL}/*.tar.gz ~/opt/proven/${ARCH_LABEL}/
+          if [[ -d "proven/${ARCH_LABEL}" ]]; then
+            echo "Pulling proven cache from LFS for ${ARCH_LABEL}..."
+            git lfs pull --include="proven/${ARCH_LABEL}/" --exclude=""
+            if ls proven/${ARCH_LABEL}/*.tar.gz &>/dev/null; then
+              mkdir -p ~/opt/proven/${ARCH_LABEL}
+              cp proven/${ARCH_LABEL}/*.tar.gz ~/opt/proven/${ARCH_LABEL}/
+              echo "Restored $(ls proven/${ARCH_LABEL}/*.tar.gz | wc -l) packages."
+              # Clean up working copy to save runner disk space
+              GIT_LFS_SKIP_SMUDGE=1 git checkout -- "proven/${ARCH_LABEL}/"
+              git lfs prune
+            else
+              echo "No LFS proven cache available, will build from source."
+            fi
           else
-            echo "No LFS proven cache available, will build from source."
+            echo "No proven directory for ${ARCH_LABEL}, will build from source."
           fi
 
       - name: Build MKVToolNix

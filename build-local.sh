@@ -60,25 +60,19 @@ function wipe_workspace {
   echo "==> Workspace clean."
 }
 
-# Defaults
-TAG=""
-BUILD_MODE="auto"  # auto, full, promote
-WORK_DIR=${WORK_DIR:-$HOME/tmp/compile}
-TARGET=${TARGET:-$HOME/opt}
-PACKAGE_DIR="${TARGET}/packages"
-BUILD_DIR="${SCRIPT_DIR}/build"
-RELEASE_DIR="${SCRIPT_DIR}/release"
-VERIFY_PASSED=false
-
 function usage {
   cat <<'USAGE'
-Usage: build-local.sh [options] <tag>
+Usage: build-local.sh [options] [tag]
 
   tag               Upstream release tag (e.g. release-98.0)
+                    Required for build and promote. Not used by
+                    --restore-cache or --cleanup-lfs.
 
 Options:
   --full            Force full rebuild from source (proven cache untouched)
   --promote         Archive proven to LFS, replace with current build
+  --restore-cache   Pull proven deps from LFS to local cache and clean up
+  --cleanup-lfs     Restore proven/ to pointer files and prune LFS cache
   --help            Show this help
 
 Default behavior:
@@ -93,17 +87,268 @@ USAGE
   exit 0
 }
 
+function is_lfs_pointer_file {
+  local file="$1"
+
+  [[ -f "${file}" ]] || return 1
+  LC_ALL=C command dd if="${file}" bs=64 count=1 2>/dev/null | command grep -q "^version https://git-lfs\\.github\\.com/spec/v1$"
+}
+
+function cleanup_repo_lfs {
+  local cleaned=false
+  local -a arch_dirs=()
+  local -a sample_file=()
+  local arch_name arch_dir
+
+  if [[ $# -gt 0 ]]; then
+    for arch_name in "$@"; do
+      arch_dirs+=("${SCRIPT_DIR}/proven/${arch_name}")
+    done
+  else
+    arch_dirs=("${SCRIPT_DIR}"/proven/*(N/))
+  fi
+
+  for arch_dir in "${arch_dirs[@]}"; do
+    [[ -d "${arch_dir}" ]] || continue
+    arch_name="${arch_dir:t}"
+    sample_file=("${arch_dir}"/*.tar.gz(N[1]))
+
+    # Skip if no tar.gz files present
+    [[ ${#sample_file[@]} -eq 0 ]] && continue
+
+    if is_lfs_pointer_file "${sample_file[1]}"; then
+      echo "    proven/${arch_name}/ already pointers."
+      continue
+    fi
+
+    echo "    Restoring pointer files in proven/${arch_name}/..."
+    (cd "${SCRIPT_DIR}" && GIT_LFS_SKIP_SMUDGE=1 git checkout -- "proven/${arch_name}/")
+    cleaned=true
+  done
+
+  if [[ "${cleaned}" == true ]]; then
+    echo "==> Pruning LFS object cache..."
+    (cd "${SCRIPT_DIR}" && git lfs prune)
+    echo "    Pruned LFS object cache."
+  else
+    echo "    No cleanup needed — all proven files are already pointers."
+  fi
+}
+
+function run_cleanup_lfs_mode {
+  echo "==> Cleaning up LFS objects..."
+  cleanup_repo_lfs
+  echo "==> Done. Repo proven/ restored to pointer files."
+}
+
+function run_restore_cache_mode {
+  local repo_proven="${SCRIPT_DIR}/proven/${ARCH_LABEL}"
+  local local_proven="${TARGET}/proven/${ARCH_LABEL}"
+  local pull_status=0
+  local -a pointer_files still_pointers
+  local f
+
+  echo "==> Restoring proven cache from LFS for ${ARCH_LABEL}..."
+
+  # Check if proven files exist in repo
+  pointer_files=("${repo_proven}"/*.tar.gz(N))
+  if [[ ${#pointer_files[@]} -eq 0 ]]; then
+    echo "ERROR: No proven files found in proven/${ARCH_LABEL}/"
+    echo "  The repository may not have a proven cache for this architecture."
+    return 1
+  fi
+
+  # Pull LFS objects for this arch only (override fetchexclude)
+  echo "    Pulling LFS objects for ${ARCH_LABEL}..."
+  if (cd "${SCRIPT_DIR}" && git lfs pull --include="proven/${ARCH_LABEL}/" --exclude=""); then
+    :
+  else
+    pull_status=$?
+    echo "ERROR: git lfs pull did not complete successfully."
+    echo "  Restoring proven/${ARCH_LABEL}/ to pointer files to avoid a mixed LFS state."
+    cleanup_repo_lfs "${ARCH_LABEL}"
+    return ${pull_status}
+  fi
+
+  # Verify ALL files are real content (not still pointers)
+  for f in "${pointer_files[@]}"; do
+    if is_lfs_pointer_file "${f}"; then
+      still_pointers+=("${f:t}")
+    fi
+  done
+  if [[ ${#still_pointers[@]} -gt 0 ]]; then
+    echo "ERROR: LFS pull did not download all files."
+    echo "  ${#still_pointers[@]} files are still pointers:"
+    echo "    ${still_pointers[*]}"
+    echo "  Check your network connection and LFS access."
+    echo "  Restoring proven/${ARCH_LABEL}/ to pointer files to avoid a mixed LFS state."
+    cleanup_repo_lfs "${ARCH_LABEL}"
+    return 1
+  fi
+
+  # Copy to local cache
+  mkdir -p "${local_proven}"
+  echo "    Copying ${#pointer_files[@]} packages to ${local_proven}..."
+  command cp "${repo_proven}"/*.tar.gz "${local_proven}/"
+
+  # Clean up repo working copy
+  cleanup_repo_lfs "${ARCH_LABEL}"
+
+  echo "==> Done. ${#pointer_files[@]} packages restored to ${local_proven}"
+  echo "    Run './build-local.sh <tag>' to build using cached deps."
+}
+
+function restore_from_proven {
+  local proven_dir="${TARGET}/proven/${ARCH_LABEL}"
+  local restored=0
+  local missing=()
+  local pkg pkg_file
+  local docbook_archive="${proven_dir}/docbook-xsl.tar.gz"
+
+  echo "==> Restoring from proven cache..."
+
+  for pkg in "${EXPECTED_PACKAGES[@]}"; do
+    pkg_file="${proven_dir}/${pkg}.tar.gz"
+    if [[ -f "${pkg_file}" ]]; then
+      continue
+    fi
+    echo "    Missing from proven: ${pkg}"
+    missing+=("${pkg}")
+  done
+
+  if [[ ! -f "${docbook_archive}" ]]; then
+    echo "    Missing from proven: docbook-xsl"
+    missing+=("docbook-xsl")
+  fi
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "==> Restored ${restored} packages. Missing: ${#missing[@]}."
+    return 1
+  fi
+
+  for pkg in "${EXPECTED_PACKAGES[@]}"; do
+    pkg_file="${proven_dir}/${pkg}.tar.gz"
+    echo "    Restoring ${pkg}..."
+    (cd "${TARGET}" && tar xzf "${pkg_file}")
+    restored=$((restored + 1))
+  done
+
+  echo "    Restoring docbook-xsl..."
+  (cd "${TARGET}" && tar xzf "${docbook_archive}")
+  restored=$((restored + 1))
+
+  echo "==> Restored ${restored} packages. Missing: 0."
+  return 0
+}
+
+function do_promote {
+  local proven_dir="${TARGET}/proven/${ARCH_LABEL}"
+  local packages_dir="${TARGET}/packages"
+  local repo_proven="${SCRIPT_DIR}/proven/${ARCH_LABEL}"
+  local missing_pkgs=()
+  local pkg
+
+  # Precondition: verification must have passed
+  if [[ "${VERIFY_PASSED}" != true ]]; then
+    echo "ERROR: Cannot promote — post-build verification did not pass."
+    echo "       Build and verify first, then promote."
+    exit 1
+  fi
+
+  # Precondition: packages must contain all expected deps + docbook-xsl
+  for pkg in "${EXPECTED_PACKAGES[@]}"; do
+    [[ -f "${packages_dir}/${pkg}.tar.gz" ]] || missing_pkgs+=("${pkg}")
+  done
+  [[ -f "${packages_dir}/docbook-xsl.tar.gz" ]] || missing_pkgs+=("docbook-xsl")
+  if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
+    echo "ERROR: Cannot promote — packages/ is incomplete (${#missing_pkgs[@]} missing)."
+    echo "  Missing: ${missing_pkgs[*]}"
+    echo "  This can happen after a smart-restore build (only mkvtoolnix was rebuilt)."
+    echo "  Run a --full build first, then promote."
+    exit 1
+  fi
+
+  echo "==> Promoting ${#EXPECTED_PACKAGES[@]} packages + docbook-xsl (${ARCH_LABEL})..."
+
+  # Step 1: Archive current proven to LFS
+  local proven_files=("${proven_dir}"/*.tar.gz)
+  if [[ -d "${proven_dir}" ]] && [[ ${#proven_files[@]} -gt 0 ]]; then
+    echo "    Archiving current ${ARCH_LABEL} proven to LFS..."
+    mkdir -p "${repo_proven}"
+    command cp "${proven_dir}"/*.tar.gz "${repo_proven}/"
+    (cd "${SCRIPT_DIR}" && git add "proven/${ARCH_LABEL}/"*.tar.gz && git diff --cached --quiet || git commit -m "archive: ${ARCH_LABEL} proven deps before promotion $(date +%Y-%m-%d)" -- "proven/${ARCH_LABEL}/")
+  fi
+
+  # Step 2: Build new proven set in temp directory
+  local pkg_files=("${packages_dir}"/*.tar.gz)
+  if [[ ${#pkg_files[@]} -eq 0 ]]; then
+    echo "ERROR: No packages found in ${packages_dir} — cannot promote."
+    exit 1
+  fi
+  local proven_new="${TARGET}/proven-${ARCH_LABEL}-new"
+  mkdir -p "${proven_new}"
+  command cp "${pkg_files[@]}" "${proven_new}/"
+
+  # Step 3: Atomic swap — clean up stale old dir first to prevent nesting
+  command rm -rf "${TARGET}/proven-${ARCH_LABEL}-old"
+  if [[ -d "${proven_dir}" ]]; then
+    command mv "${proven_dir}" "${TARGET}/proven-${ARCH_LABEL}-old"
+  fi
+  mkdir -p "${TARGET}/proven"
+  command mv "${proven_new}" "${proven_dir}"
+
+  # Step 4: Cleanup old
+  if [[ -d "${TARGET}/proven-${ARCH_LABEL}-old" ]]; then
+    command rm -rf "${TARGET}/proven-${ARCH_LABEL}-old"
+  fi
+
+  # Step 5: Update LFS with new proven
+  mkdir -p "${repo_proven}"
+  command cp "${proven_dir}"/*.tar.gz "${repo_proven}/"
+  (cd "${SCRIPT_DIR}" && git add "proven/${ARCH_LABEL}/"*.tar.gz && git diff --cached --quiet || git commit -m "promote: ${ARCH_LABEL} proven deps $(date +%Y-%m-%d)" -- "proven/${ARCH_LABEL}/")
+
+  echo "==> Promotion complete. Proven cache updated."
+  echo "    LFS archive committed. Push when ready."
+
+  # Clean up only the arch we promoted; leave other working copies alone.
+  cleanup_repo_lfs "${ARCH_LABEL}"
+}
+
+# Defaults
+TAG=""
+BUILD_MODE="auto"  # auto, full, promote
+WORK_DIR=${WORK_DIR:-$HOME/tmp/compile}
+TARGET=${TARGET:-$HOME/opt}
+PACKAGE_DIR="${TARGET}/packages"
+BUILD_DIR="${SCRIPT_DIR}/build"
+RELEASE_DIR="${SCRIPT_DIR}/release"
+VERIFY_PASSED=false
+
 # Parse arguments
 while [[ -n $1 ]]; do
   case $1 in
     --full)       BUILD_MODE="full" ;;
     --promote)    BUILD_MODE="promote" ;;
+    --restore-cache)  BUILD_MODE="restore-cache" ;;
+    --cleanup-lfs)    BUILD_MODE="cleanup-lfs" ;;
     --help|-h)    usage ;;
     -*)           echo "Unknown option: $1"; usage ;;
     *)            TAG="$1" ;;
   esac
   shift
 done
+
+# Handle --cleanup-lfs early (no tag, clone, or specs needed)
+if [[ "${BUILD_MODE}" == "cleanup-lfs" ]]; then
+  run_cleanup_lfs_mode
+  exit 0
+fi
+
+# Handle --restore-cache early (no tag, clone, or specs needed)
+if [[ "${BUILD_MODE}" == "restore-cache" ]]; then
+  run_restore_cache_mode
+  exit $?
+fi
 
 if [[ -z "${TAG}" ]]; then
   TAG="release-98.0"
@@ -272,115 +517,6 @@ for pkg in "${EXPECTED_PACKAGES[@]}"; do
   done
 done
 
-# --- Dependency caching logic ---
-
-function restore_from_proven {
-  local proven_dir="${TARGET}/proven/${ARCH_LABEL}"
-  local restored=0
-  local missing=()
-
-  echo "==> Restoring from proven cache..."
-
-  for pkg in "${EXPECTED_PACKAGES[@]}"; do
-    local pkg_file="${proven_dir}/${pkg}.tar.gz"
-    if [[ -f "${pkg_file}" ]]; then
-      echo "    Restoring ${pkg}..."
-      (cd "${TARGET}" && tar xzf "${pkg_file}")
-      restored=$((restored + 1))
-    else
-      echo "    Missing from proven: ${pkg}"
-      missing+=("${pkg}")
-    fi
-  done
-
-  # Restore docbook-xsl if archived
-  local docbook_archive="${proven_dir}/docbook-xsl.tar.gz"
-  if [[ -f "${docbook_archive}" ]]; then
-    echo "    Restoring docbook-xsl..."
-    (cd "${TARGET}" && tar xzf "${docbook_archive}")
-    restored=$((restored + 1))
-  else
-    echo "    Missing from proven: docbook-xsl"
-    missing+=("docbook-xsl")
-  fi
-
-  echo "==> Restored ${restored} packages. Missing: ${#missing[@]}."
-
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    return 1
-  fi
-  return 0
-}
-
-function do_promote {
-  local proven_dir="${TARGET}/proven/${ARCH_LABEL}"
-  local packages_dir="${TARGET}/packages"
-  local repo_proven="${SCRIPT_DIR}/proven/${ARCH_LABEL}"
-
-  # Precondition: verification must have passed
-  if [[ "${VERIFY_PASSED}" != true ]]; then
-    echo "ERROR: Cannot promote — post-build verification did not pass."
-    echo "       Build and verify first, then promote."
-    exit 1
-  fi
-
-  # Precondition: packages must contain all expected deps + docbook-xsl
-  local missing_pkgs=()
-  for pkg in "${EXPECTED_PACKAGES[@]}"; do
-    [[ -f "${packages_dir}/${pkg}.tar.gz" ]] || missing_pkgs+=("${pkg}")
-  done
-  [[ -f "${packages_dir}/docbook-xsl.tar.gz" ]] || missing_pkgs+=("docbook-xsl")
-  if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
-    echo "ERROR: Cannot promote — packages/ is incomplete (${#missing_pkgs[@]} missing)."
-    echo "  Missing: ${missing_pkgs[*]}"
-    echo "  This can happen after a smart-restore build (only mkvtoolnix was rebuilt)."
-    echo "  Run a --full build first, then promote."
-    exit 1
-  fi
-
-  echo "==> Promoting ${#EXPECTED_PACKAGES[@]} packages + docbook-xsl (${ARCH_LABEL})..."
-
-  # Step 1: Archive current proven to LFS
-  local proven_files=(${proven_dir}/*.tar.gz)
-  if [[ -d "${proven_dir}" ]] && [[ ${#proven_files[@]} -gt 0 ]]; then
-    echo "    Archiving current ${ARCH_LABEL} proven to LFS..."
-    mkdir -p "${repo_proven}"
-    command cp "${proven_dir}"/*.tar.gz "${repo_proven}/"
-    (cd "${SCRIPT_DIR}" && git add "proven/${ARCH_LABEL}/"*.tar.gz && git diff --cached --quiet || git commit -m "archive: ${ARCH_LABEL} proven deps before promotion $(date +%Y-%m-%d)" -- "proven/${ARCH_LABEL}/")
-  fi
-
-  # Step 2: Build new proven set in temp directory
-  local pkg_files=("${packages_dir}"/*.tar.gz)
-  if [[ ${#pkg_files[@]} -eq 0 ]]; then
-    echo "ERROR: No packages found in ${packages_dir} — cannot promote."
-    exit 1
-  fi
-  local proven_new="${TARGET}/proven-${ARCH_LABEL}-new"
-  mkdir -p "${proven_new}"
-  command cp "${pkg_files[@]}" "${proven_new}/"
-
-  # Step 3: Atomic swap — clean up stale old dir first to prevent nesting
-  command rm -rf "${TARGET}/proven-${ARCH_LABEL}-old"
-  if [[ -d "${proven_dir}" ]]; then
-    command mv "${proven_dir}" "${TARGET}/proven-${ARCH_LABEL}-old"
-  fi
-  mkdir -p "${TARGET}/proven"
-  command mv "${proven_new}" "${proven_dir}"
-
-  # Step 4: Cleanup old
-  if [[ -d "${TARGET}/proven-${ARCH_LABEL}-old" ]]; then
-    command rm -rf "${TARGET}/proven-${ARCH_LABEL}-old"
-  fi
-
-  # Step 5: Update LFS with new proven
-  mkdir -p "${repo_proven}"
-  command cp "${proven_dir}"/*.tar.gz "${repo_proven}/"
-  (cd "${SCRIPT_DIR}" && git add "proven/${ARCH_LABEL}/"*.tar.gz && git diff --cached --quiet || git commit -m "promote: ${ARCH_LABEL} proven deps $(date +%Y-%m-%d)" -- "proven/${ARCH_LABEL}/")
-
-  echo "==> Promotion complete. Proven cache updated."
-  echo "    LFS archive committed. Push when ready."
-}
-
 # --- Build ---
 
 cd "${CLONE_DIR}/packaging/macos"
@@ -410,6 +546,7 @@ case "${BUILD_MODE}" in
     else
       BUILD_SUMMARY="No proven cache, full build from source"
       echo "==> Some dependencies missing from proven. Doing full build..."
+      echo "    Hint: run './build-local.sh --restore-cache' to pull updated deps from LFS."
       ./build.sh
     fi
     ;;
