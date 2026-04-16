@@ -79,6 +79,7 @@ Usage: build-local.sh [options] <tag>
 Options:
   --full            Force full rebuild from source (proven cache untouched)
   --promote         Archive proven to LFS, replace with current build
+  --restore-cache   Pull proven deps from LFS to local cache, then exit
   --help            Show this help
 
 Default behavior:
@@ -98,6 +99,7 @@ while [[ -n $1 ]]; do
   case $1 in
     --full)       BUILD_MODE="full" ;;
     --promote)    BUILD_MODE="promote" ;;
+    --restore-cache)  BUILD_MODE="restore-cache" ;;
     --help|-h)    usage ;;
     -*)           echo "Unknown option: $1"; usage ;;
     *)            TAG="$1" ;;
@@ -428,6 +430,65 @@ case "${BUILD_MODE}" in
     fi
     BUILD_SUMMARY="Promote (verification only)"
     echo "==> Promote mode — skipping build, running verification..."
+    ;;
+  restore-cache)
+    echo "==> Restoring proven cache from LFS for ${ARCH_LABEL}..."
+
+    local repo_proven="${SCRIPT_DIR}/proven/${ARCH_LABEL}"
+    local local_proven="${TARGET}/proven/${ARCH_LABEL}"
+
+    # Check if LFS pointers exist in repo
+    local pointer_files=(${repo_proven}/*.tar.gz(N))
+    if [[ ${#pointer_files[@]} -eq 0 ]]; then
+      echo "ERROR: No proven files found in proven/${ARCH_LABEL}/"
+      echo "  The repository may not have a proven cache for this architecture."
+      exit 1
+    fi
+
+    # Pull LFS objects for this arch only (override fetchexclude)
+    echo "    Pulling LFS objects for ${ARCH_LABEL}..."
+    (cd "${SCRIPT_DIR}" && git lfs pull --include="proven/${ARCH_LABEL}/" --exclude="")
+
+    # Verify we got real files (not still pointers)
+    local sample_file="${pointer_files[1]}"
+    local file_size=$(wc -c < "${sample_file}")
+    if [[ ${file_size} -lt 200 ]]; then
+      echo "ERROR: LFS pull did not download real files."
+      echo "  File ${sample_file:t} is still ${file_size} bytes (pointer)."
+      echo "  Check your network connection and LFS access."
+      exit 1
+    fi
+
+    # Copy to local cache
+    mkdir -p "${local_proven}"
+    echo "    Copying to ${local_proven}..."
+    command cp "${repo_proven}"/*.tar.gz "${local_proven}/"
+
+    # Verify expected packages arrived
+    local restored=0
+    local missing=()
+    for pkg in "${EXPECTED_PACKAGES[@]}"; do
+      if [[ -f "${local_proven}/${pkg}.tar.gz" ]]; then
+        restored=$((restored + 1))
+      else
+        missing+=("${pkg}")
+      fi
+    done
+    [[ -f "${local_proven}/docbook-xsl.tar.gz" ]] && restored=$((restored + 1)) || missing+=("docbook-xsl")
+
+    echo "    Restored ${restored} packages to local cache."
+    if [[ ${#missing[@]} -gt 0 ]]; then
+      echo "    WARNING: ${#missing[@]} expected packages missing from LFS:"
+      echo "      ${missing[*]}"
+    fi
+
+    # Clean up repo working copy
+    cleanup_repo_lfs
+
+    BUILD_SUMMARY="Restore cache from LFS (${restored} packages)"
+    echo "==> Done. Local cache ready at ${local_proven}"
+    echo "    Run './build-local.sh ${TAG}' to build using cached deps."
+    exit 0
     ;;
   auto|"")
     wipe_workspace
