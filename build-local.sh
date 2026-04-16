@@ -544,6 +544,7 @@ case "${BUILD_MODE}" in
     else
       BUILD_SUMMARY="No proven cache, full build from source"
       echo "==> Some dependencies missing from proven. Doing full build..."
+      echo "    Hint: run './build-local.sh --restore-cache' to pull updated deps from LFS."
       ./build.sh
     fi
     ;;
