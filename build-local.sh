@@ -62,14 +62,16 @@ function wipe_workspace {
 
 function usage {
   cat <<'USAGE'
-Usage: build-local.sh [options] <tag>
+Usage: build-local.sh [options] [tag]
 
   tag               Upstream release tag (e.g. release-98.0)
+                    Required for build and promote. Not used by
+                    --restore-cache or --cleanup-lfs.
 
 Options:
   --full            Force full rebuild from source (proven cache untouched)
   --promote         Archive proven to LFS, replace with current build
-  --restore-cache   Pull proven deps from LFS to local cache, then exit
+  --restore-cache   Pull proven deps from LFS to local cache and clean up
   --cleanup-lfs     Restore proven/ to pointer files and prune LFS cache
   --help            Show this help
 
