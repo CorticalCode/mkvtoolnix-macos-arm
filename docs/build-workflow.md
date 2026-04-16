@@ -66,8 +66,8 @@ flowchart TD
     P5 --> P6["Clean up repo LFS objects"]
     P6 --> P7(("Exit<br/><i>push when ready</i>"))
 
-    POST["Post-build verification"] --> DMG["Package DMG"]
-    DMG --> DONE(("Done<br/><i>DMG ready</i>"))
+    POST["Package DMG"] --> VERIFY["Post-build verification"]
+    VERIFY --> DONE(("Done<br/><i>DMG ready</i>"))
 
     style RC5 fill:#e8f5e9,stroke:#4caf50
     style P2 fill:#ffebee,stroke:#f44336
