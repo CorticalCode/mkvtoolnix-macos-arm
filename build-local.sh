@@ -119,9 +119,8 @@ function cleanup_repo_lfs {
     return 0
   fi
 
-  # Check if already a pointer (pointer files are < 200 bytes)
-  local file_size=$(wc -c < "${sample_file}")
-  if [[ ${file_size} -lt 200 ]]; then
+  # Check if already a pointer (LFS pointers start with "version https://git-lfs")
+  if head -1 "${sample_file}" | grep -q "^version https://git-lfs"; then
     echo "    Repo proven files are already pointers. No cleanup needed."
     return 0
   fi
@@ -462,12 +461,17 @@ case "${BUILD_MODE}" in
     echo "    Pulling LFS objects for ${ARCH_LABEL}..."
     (cd "${SCRIPT_DIR}" && git lfs pull --include="proven/${ARCH_LABEL}/" --exclude="")
 
-    # Verify we got real files (not still pointers)
-    local sample_file="${pointer_files[1]}"
-    local file_size=$(wc -c < "${sample_file}")
-    if [[ ${file_size} -lt 200 ]]; then
-      echo "ERROR: LFS pull did not download real files."
-      echo "  File ${sample_file:t} is still ${file_size} bytes (pointer)."
+    # Verify ALL files are real content (not still pointers)
+    local still_pointers=()
+    for f in "${pointer_files[@]}"; do
+      if head -1 "${f}" | grep -q "^version https://git-lfs"; then
+        still_pointers+=("${f:t}")
+      fi
+    done
+    if [[ ${#still_pointers[@]} -gt 0 ]]; then
+      echo "ERROR: LFS pull did not download all files."
+      echo "  ${#still_pointers[@]} files are still pointers:"
+      echo "    ${still_pointers[*]}"
       echo "  Check your network connection and LFS access."
       exit 1
     fi
