@@ -1,5 +1,32 @@
 # Changelog
 
+## Build System: LFS On-Demand (2026-04-15)
+
+Proven dependency cache is now opt-in. Cloning the repo no longer downloads ~534 MB of pre-built dependency archives.
+
+**What changed:**
+- Added `.lfsconfig` with `fetchexclude = proven/**` — clones are now ~1 MB
+- New `--restore-cache` flag: pulls pre-built deps from LFS for your architecture, copies to local build cache, cleans up repo
+- New `--cleanup-lfs` flag: restores `proven/` to pointer files and prunes LFS cache (for existing clones)
+- `--promote` now cleans up repo LFS objects after committing
+- `cleanup_repo_lfs` uses bounded `dd`-based LFS header detection (safe on large binaries)
+- Failed `git lfs pull` is caught and repo is restored to clean pointer state
+- `restore_from_proven` validates all packages exist before untarring (no partial restore)
+- CI workflow updated to work with `.lfsconfig` (explicit LFS restore instead of `lfs: true`)
+
+**New flags:**
+- `--restore-cache` — pull proven deps from LFS to local cache and clean up (no tag required)
+- `--cleanup-lfs` — restore proven/ to pointer files and prune LFS cache (no tag required)
+
+**Documentation:**
+- New `docs/build-workflow.md` with Mermaid flowcharts covering all build modes
+- Updated `docs/proven-cache.md` and `README.md` with `--restore-cache` workflow
+- Existing clone cleanup instructions (scripted and manual)
+
+**Multi-agent review:** Two rounds of cross-provider review (Codex + Gemini) identified and fixed: function-before-define crash, unreliable pointer detection, single-arch cleanup, circular clone dependency, interrupted pull recovery, partial restore on stale cache, unbounded binary reads, and documentation inconsistencies.
+
+---
+
 ## v98.0-b2026.04.3 (2026-04-15) — Current Release
 
 Critical fix for Homebrew library leak that caused DYLD crashes on launch.
