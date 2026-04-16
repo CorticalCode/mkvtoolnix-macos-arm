@@ -5,7 +5,7 @@
 | Flag | Purpose | Who | Build time | Requires |
 |------|---------|-----|-----------|----------|
 | *(default)* | Auto-detect: use cache if available, otherwise full build | Anyone | 15 min (cached) / 1-3 hrs (full) | Tag |
-| `--restore-cache` | Pull pre-built deps from LFS to local cache | Anyone | ~2 min | Tag |
+| `--restore-cache` | Pull pre-built deps from LFS to local cache | Anyone | ~2 min | Nothing |
 | `--full` | Rebuild all dependencies from source | Anyone | 1-3 hours | Tag |
 | `--promote` | Archive verified build to LFS | Maintainer | ~1 min | Verified build |
 | `--cleanup-lfs` | Restore proven/ to pointers, prune LFS cache | Anyone | ~10 sec | Nothing |

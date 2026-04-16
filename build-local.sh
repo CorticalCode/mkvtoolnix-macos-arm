@@ -148,6 +148,53 @@ if [[ "${BUILD_MODE}" == "cleanup-lfs" ]]; then
   exit 0
 fi
 
+# Handle --restore-cache early (no tag, clone, or specs needed)
+if [[ "${BUILD_MODE}" == "restore-cache" ]]; then
+  local repo_proven="${SCRIPT_DIR}/proven/${ARCH_LABEL}"
+  local local_proven="${TARGET}/proven/${ARCH_LABEL}"
+
+  echo "==> Restoring proven cache from LFS for ${ARCH_LABEL}..."
+
+  # Check if proven files exist in repo
+  local pointer_files=(${repo_proven}/*.tar.gz(N))
+  if [[ ${#pointer_files[@]} -eq 0 ]]; then
+    echo "ERROR: No proven files found in proven/${ARCH_LABEL}/"
+    echo "  The repository may not have a proven cache for this architecture."
+    exit 1
+  fi
+
+  # Pull LFS objects for this arch only (override fetchexclude)
+  echo "    Pulling LFS objects for ${ARCH_LABEL}..."
+  (cd "${SCRIPT_DIR}" && git lfs pull --include="proven/${ARCH_LABEL}/" --exclude="")
+
+  # Verify ALL files are real content (not still pointers)
+  local still_pointers=()
+  for f in "${pointer_files[@]}"; do
+    if head -1 "${f}" | grep -q "^version https://git-lfs"; then
+      still_pointers+=("${f:t}")
+    fi
+  done
+  if [[ ${#still_pointers[@]} -gt 0 ]]; then
+    echo "ERROR: LFS pull did not download all files."
+    echo "  ${#still_pointers[@]} files are still pointers:"
+    echo "    ${still_pointers[*]}"
+    echo "  Check your network connection and LFS access."
+    exit 1
+  fi
+
+  # Copy to local cache
+  mkdir -p "${local_proven}"
+  echo "    Copying ${#pointer_files[@]} packages to ${local_proven}..."
+  command cp "${repo_proven}"/*.tar.gz "${local_proven}/"
+
+  # Clean up repo working copy
+  cleanup_repo_lfs
+
+  echo "==> Done. ${#pointer_files[@]} packages restored to ${local_proven}"
+  echo "    Run './build-local.sh <tag>' to build using cached deps."
+  exit 0
+fi
+
 if [[ -z "${TAG}" ]]; then
   TAG="release-98.0"
   echo "WARNING: No tag specified, defaulting to ${TAG}. Pass a tag explicitly for new versions."
@@ -446,70 +493,6 @@ case "${BUILD_MODE}" in
     fi
     BUILD_SUMMARY="Promote (verification only)"
     echo "==> Promote mode — skipping build, running verification..."
-    ;;
-  restore-cache)
-    echo "==> Restoring proven cache from LFS for ${ARCH_LABEL}..."
-
-    local repo_proven="${SCRIPT_DIR}/proven/${ARCH_LABEL}"
-    local local_proven="${TARGET}/proven/${ARCH_LABEL}"
-
-    # Check if LFS pointers exist in repo
-    local pointer_files=(${repo_proven}/*.tar.gz(N))
-    if [[ ${#pointer_files[@]} -eq 0 ]]; then
-      echo "ERROR: No proven files found in proven/${ARCH_LABEL}/"
-      echo "  The repository may not have a proven cache for this architecture."
-      exit 1
-    fi
-
-    # Pull LFS objects for this arch only (override fetchexclude)
-    echo "    Pulling LFS objects for ${ARCH_LABEL}..."
-    (cd "${SCRIPT_DIR}" && git lfs pull --include="proven/${ARCH_LABEL}/" --exclude="")
-
-    # Verify ALL files are real content (not still pointers)
-    local still_pointers=()
-    for f in "${pointer_files[@]}"; do
-      if head -1 "${f}" | grep -q "^version https://git-lfs"; then
-        still_pointers+=("${f:t}")
-      fi
-    done
-    if [[ ${#still_pointers[@]} -gt 0 ]]; then
-      echo "ERROR: LFS pull did not download all files."
-      echo "  ${#still_pointers[@]} files are still pointers:"
-      echo "    ${still_pointers[*]}"
-      echo "  Check your network connection and LFS access."
-      exit 1
-    fi
-
-    # Copy to local cache
-    mkdir -p "${local_proven}"
-    echo "    Copying to ${local_proven}..."
-    command cp "${repo_proven}"/*.tar.gz "${local_proven}/"
-
-    # Verify expected packages arrived
-    local restored=0
-    local missing=()
-    for pkg in "${EXPECTED_PACKAGES[@]}"; do
-      if [[ -f "${local_proven}/${pkg}.tar.gz" ]]; then
-        restored=$((restored + 1))
-      else
-        missing+=("${pkg}")
-      fi
-    done
-    [[ -f "${local_proven}/docbook-xsl.tar.gz" ]] && restored=$((restored + 1)) || missing+=("docbook-xsl")
-
-    echo "    Restored ${restored} packages to local cache."
-    if [[ ${#missing[@]} -gt 0 ]]; then
-      echo "    WARNING: ${#missing[@]} expected packages missing from LFS:"
-      echo "      ${missing[*]}"
-    fi
-
-    # Clean up repo working copy
-    cleanup_repo_lfs
-
-    BUILD_SUMMARY="Restore cache from LFS (${restored} packages)"
-    echo "==> Done. Local cache ready at ${local_proven}"
-    echo "    Run './build-local.sh ${TAG}' to build using cached deps."
-    exit 0
     ;;
   auto|"")
     wipe_workspace
