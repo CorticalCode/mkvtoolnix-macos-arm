@@ -409,6 +409,9 @@ function do_promote {
 
   echo "==> Promotion complete. Proven cache updated."
   echo "    LFS archive committed. Push when ready."
+
+  # Clean up repo working copy to reclaim disk space
+  cleanup_repo_lfs
 }
 
 # --- Build ---
