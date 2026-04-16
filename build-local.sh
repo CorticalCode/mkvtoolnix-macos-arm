@@ -110,35 +110,39 @@ while [[ -n $1 ]]; do
 done
 
 function cleanup_repo_lfs {
-  local repo_proven="${SCRIPT_DIR}/proven/${ARCH_LABEL}"
+  local cleaned=false
 
-  # Only clean up if real files exist (not already pointers)
-  local sample_file=(${repo_proven}/*.tar.gz(N[1]))
-  if [[ -z "${sample_file}" ]]; then
-    echo "    No proven files in repo to clean up."
-    return 0
+  # Clean all architecture directories (arm, intel, or any future arch)
+  for arch_dir in "${SCRIPT_DIR}"/proven/*(N/); do
+    local arch_name="${arch_dir:t}"
+    local sample_file=(${arch_dir}/*.tar.gz(N[1]))
+
+    # Skip if no tar.gz files present
+    [[ -z "${sample_file}" ]] && continue
+
+    # Skip if already a pointer (LFS pointers start with "version https://git-lfs")
+    if head -1 "${sample_file}" | grep -q "^version https://git-lfs"; then
+      echo "    proven/${arch_name}/ already pointers."
+      continue
+    fi
+
+    echo "    Restoring pointer files in proven/${arch_name}/..."
+    (cd "${SCRIPT_DIR}" && GIT_LFS_SKIP_SMUDGE=1 git checkout -- "proven/${arch_name}/")
+    cleaned=true
+  done
+
+  if [[ "${cleaned}" == true ]]; then
+    echo "==> Pruning LFS object cache..."
+    (cd "${SCRIPT_DIR}" && git lfs prune)
+    echo "    Pruned LFS object cache."
+  else
+    echo "    No cleanup needed — all proven files are already pointers."
   fi
-
-  # Check if already a pointer (LFS pointers start with "version https://git-lfs")
-  if head -1 "${sample_file}" | grep -q "^version https://git-lfs"; then
-    echo "    Repo proven files are already pointers. No cleanup needed."
-    return 0
-  fi
-
-  echo "==> Cleaning up repo LFS working copy..."
-
-  # Restore pointer files (skip smudge so checkout doesn't re-download)
-  (cd "${SCRIPT_DIR}" && GIT_LFS_SKIP_SMUDGE=1 git checkout -- "proven/${ARCH_LABEL}/")
-  echo "    Restored pointer files in proven/${ARCH_LABEL}/"
-
-  # Prune LFS objects no longer referenced by the working copy
-  (cd "${SCRIPT_DIR}" && git lfs prune)
-  echo "    Pruned LFS object cache."
 }
 
 # Handle --cleanup-lfs early (no tag, clone, or specs needed)
 if [[ "${BUILD_MODE}" == "cleanup-lfs" ]]; then
-  echo "==> Cleaning up LFS objects for ${ARCH_LABEL}..."
+  echo "==> Cleaning up LFS objects..."
   cleanup_repo_lfs
   echo "==> Done. Repo proven/ restored to pointer files."
   exit 0
