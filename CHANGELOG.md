@@ -23,7 +23,9 @@ Proven dependency cache is now opt-in. Cloning the repo no longer downloads ~534
 - Updated `docs/proven-cache.md` and `README.md` with `--restore-cache` workflow
 - Existing clone cleanup instructions (scripted and manual)
 
-**Multi-agent review:** Two rounds of cross-provider review (Codex + Gemini) identified and fixed: function-before-define crash, unreliable pointer detection, single-arch cleanup, circular clone dependency, interrupted pull recovery, partial restore on stale cache, unbounded binary reads, and documentation inconsistencies.
+**Known limitation:** On clones that predate `.lfsconfig`, `--cleanup-lfs` cannot automatically restore pointer files due to a Git index optimization. The script detects this and prints manual fix instructions. See [docs/lfs-migration.md](docs/lfs-migration.md) for the one-time migration steps.
+
+**Multi-agent review:** Three rounds of cross-provider review (Codex + Gemini) identified and fixed: function-before-define crash, unreliable pointer detection, single-arch cleanup, circular clone dependency, interrupted pull recovery, partial restore on stale cache, unbounded binary reads, documentation inconsistencies, and the Git index optimization that prevents automatic pointer restoration on existing clones.
 
 ---
 
