@@ -80,6 +80,7 @@ Options:
   --full            Force full rebuild from source (proven cache untouched)
   --promote         Archive proven to LFS, replace with current build
   --restore-cache   Pull proven deps from LFS to local cache, then exit
+  --cleanup-lfs     Restore proven/ to pointer files and prune LFS cache
   --help            Show this help
 
 Default behavior:
@@ -100,12 +101,21 @@ while [[ -n $1 ]]; do
     --full)       BUILD_MODE="full" ;;
     --promote)    BUILD_MODE="promote" ;;
     --restore-cache)  BUILD_MODE="restore-cache" ;;
+    --cleanup-lfs)    BUILD_MODE="cleanup-lfs" ;;
     --help|-h)    usage ;;
     -*)           echo "Unknown option: $1"; usage ;;
     *)            TAG="$1" ;;
   esac
   shift
 done
+
+# Handle --cleanup-lfs early (no tag, clone, or specs needed)
+if [[ "${BUILD_MODE}" == "cleanup-lfs" ]]; then
+  echo "==> Cleaning up LFS objects for ${ARCH_LABEL}..."
+  cleanup_repo_lfs
+  echo "==> Done. Repo proven/ restored to pointer files."
+  exit 0
+fi
 
 if [[ -z "${TAG}" ]]; then
   TAG="release-98.0"
