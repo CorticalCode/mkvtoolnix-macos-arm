@@ -123,7 +123,16 @@ function cleanup_repo_lfs {
 
     echo "    Restoring pointer files in proven/${arch_name}/..."
     (cd "${SCRIPT_DIR}" && GIT_LFS_SKIP_SMUDGE=1 git checkout -- "proven/${arch_name}/")
-    cleaned=true
+
+    # Verify the checkout actually restored pointers
+    sample_file=("${arch_dir}"/*.tar.gz(N[1]))
+    if [[ ${#sample_file[@]} -gt 0 ]] && ! is_lfs_pointer_file "${sample_file[1]}"; then
+      echo "    WARNING: proven/${arch_name}/ files are still full binaries after checkout."
+      echo "    This can happen on clones that predate .lfsconfig."
+      echo "    To fix manually: rm proven/${arch_name}/*.tar.gz && GIT_LFS_SKIP_SMUDGE=1 git checkout -- proven/${arch_name}/"
+    else
+      cleaned=true
+    fi
   done
 
   if [[ "${cleaned}" == true ]]; then
