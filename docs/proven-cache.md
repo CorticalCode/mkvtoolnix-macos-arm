@@ -17,7 +17,17 @@ The cache is per-architecture — Apple Silicon (arm64) and Intel (x86_64) have 
 
 ### From Git LFS (recommended for most users)
 
-The repository includes pre-built dependency caches via Git LFS. After cloning, copy them to your local cache — see "Restoring from Git LFS" below. This skips the multi-hour dependency build entirely.
+The repository includes pre-built dependency caches via Git LFS. Thanks to `.lfsconfig`, cloning the repo does **not** download these large files — your clone stays small (~1 MB).
+
+When you're ready to build, pull the cache for your architecture:
+
+```sh
+./build-local.sh --restore-cache
+```
+
+This downloads the proven dependencies for your architecture (~130 MB), copies them to `~/opt/proven/{arch}/`, and cleans up the repo working copy. Future builds will restore from this local cache automatically (~15 minutes instead of 1-3 hours).
+
+If you prefer to build all dependencies from source instead, simply skip `--restore-cache` and run the build directly — it will detect the missing cache and do a full build.
 
 ### From a full build (if you need to build deps yourself)
 
@@ -54,22 +64,22 @@ The `--promote` flag is a maintainer operation that archives the proven cache to
 
 ## Restoring from Git LFS
 
-The proven cache is archived in the repository via Git LFS under `proven/{arch}/`. On a new machine:
+The proven cache is archived in the repository via Git LFS under `proven/{arch}/`. The repo's `.lfsconfig` prevents these files from being downloaded automatically on clone, keeping the repo lightweight.
+
+On a new machine:
 
 ```sh
 git clone https://github.com/CorticalCode/mkvtoolnix-gui-macos.git
 cd mkvtoolnix-gui-macos
-git lfs pull
 
-# Copy the cached deps for your architecture
-mkdir -p ~/opt/proven
-cp -r proven/arm ~/opt/proven/    # Apple Silicon
-# or
-cp -r proven/intel ~/opt/proven/  # Intel
+# Pull pre-built deps for your architecture and populate local cache
+./build-local.sh --restore-cache
 
 # Build (will restore from cache, ~15 minutes)
 ./build-local.sh release-98.0
 ```
+
+The `--restore-cache` flag handles everything: pulls LFS objects for your architecture only (~130 MB), copies them to `~/opt/proven/{arch}/`, and cleans up the repo working copy so it returns to its lightweight state.
 
 ## Forcing a full rebuild
 
