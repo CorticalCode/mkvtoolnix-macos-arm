@@ -38,6 +38,8 @@ The DMG will be at `~/tmp/compile/MKVToolNix-98.0.dmg`.
 
 Use `--restore-cache` to pull pre-built dependencies from Git LFS (~15 min build). Omit it to build everything from source (~1-3 hours). Use `--full` to force a complete rebuild. See [docs/proven-cache.md](docs/proven-cache.md) for details.
 
+> **Cloned before April 2026?** Your repo may still contain ~534 MB of dependency archives. See [docs/lfs-migration.md](docs/lfs-migration.md) for a one-time cleanup.
+
 ## What this repo contains
 
 - `build-local.sh` -- clones upstream source, applies patches, runs the build
