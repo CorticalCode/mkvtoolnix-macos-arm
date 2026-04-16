@@ -3,8 +3,6 @@
 
 # Maintainer workspace
 
-
-# Secret scanning config (private rules)
 .gitleaks.toml
 
 # AI agent configuration files (private)
