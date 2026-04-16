@@ -1,11 +1,9 @@
-# Temp work area
-/
+# Build outputs
+build/
+release/
+logs/
 
-# Maintainer workspace
-
-.gitleaks.toml
-
-# AI agent configuration files (private)
+# Agent config
 
 
 
@@ -16,15 +14,9 @@
 rules
 /
 *
+/
 
-# Build outputs (internal DMGs with branch+counter names)
-build/
-
-# Release outputs (clean-named DMGs ready to upload)
-release/
-
-# Build logs
-logs/
+.gitleaks.toml
 
 # macOS
 .DS_Store
