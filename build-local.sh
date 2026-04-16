@@ -312,6 +312,34 @@ function restore_from_proven {
   return 0
 }
 
+function cleanup_repo_lfs {
+  local repo_proven="${SCRIPT_DIR}/proven/${ARCH_LABEL}"
+
+  # Only clean up if real files exist (not already pointers)
+  local sample_file=(${repo_proven}/*.tar.gz(N[1]))
+  if [[ -z "${sample_file}" ]]; then
+    echo "    No proven files in repo to clean up."
+    return 0
+  fi
+
+  # Check if already a pointer (pointer files are < 200 bytes)
+  local file_size=$(wc -c < "${sample_file}")
+  if [[ ${file_size} -lt 200 ]]; then
+    echo "    Repo proven files are already pointers. No cleanup needed."
+    return 0
+  fi
+
+  echo "==> Cleaning up repo LFS working copy..."
+
+  # Restore pointer files (skip smudge so checkout doesn't re-download)
+  (cd "${SCRIPT_DIR}" && GIT_LFS_SKIP_SMUDGE=1 git checkout -- "proven/${ARCH_LABEL}/")
+  echo "    Restored pointer files in proven/${ARCH_LABEL}/"
+
+  # Prune LFS objects no longer referenced by the working copy
+  (cd "${SCRIPT_DIR}" && git lfs prune)
+  echo "    Pruned LFS object cache."
+}
+
 function do_promote {
   local proven_dir="${TARGET}/proven/${ARCH_LABEL}"
   local packages_dir="${TARGET}/packages"
