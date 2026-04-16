@@ -8,6 +8,7 @@
 | `--restore-cache` | Pull pre-built deps from LFS to local cache | Anyone | ~2 min | Tag |
 | `--full` | Rebuild all dependencies from source | Anyone | 1-3 hours | Tag |
 | `--promote` | Archive verified build to LFS | Maintainer | ~1 min | Verified build |
+| `--cleanup-lfs` | Restore proven/ to pointers, prune LFS cache | Anyone | ~10 sec | Nothing |
 
 ## First-Time Setup
 
@@ -99,6 +100,71 @@ flowchart LR
 ```
 
 > **Key insight:** `--restore-cache` and `--promote` are two ends of the same loop. Dependencies are pulled from LFS into the local cache, used during builds, and (for maintainers) promoted back to LFS after verification. The `--full` flag bypasses the cache entirely, building everything from source.
+
+## Existing Clones (Reclaiming Disk Space)
+
+If you cloned the repo before `.lfsconfig` was added, or cloned with `git lfs pull`, the `proven/` directory contains full binary files (~264 MB) and `.git/lfs/objects/` holds another copy (~270 MB). Here's how to reclaim that space.
+
+### Option A: Keep deps for building, clean up repo (recommended)
+
+Use `--restore-cache` to copy the already-downloaded binaries to your local build cache, then clean up the repo:
+
+```sh
+./build-local.sh --restore-cache
+```
+
+This copies the deps to `~/opt/proven/{arch}/`, restores `proven/` to pointer files, and prunes the LFS cache. Repo drops from ~535 MB to ~1 MB. Future builds use the local cache.
+
+### Option B: Just reclaim space (no build planned)
+
+If you don't need the dependencies at all:
+
+```sh
+./build-local.sh --cleanup-lfs
+```
+
+This restores `proven/` to pointer files and prunes the LFS cache. No files are copied anywhere.
+
+### Option C: Manual cleanup (no script)
+
+If you prefer to handle it yourself:
+
+```sh
+# Step 1: Restore proven/ files to LFS pointers
+# GIT_LFS_SKIP_SMUDGE prevents checkout from re-downloading the real files
+GIT_LFS_SKIP_SMUDGE=1 git checkout -- proven/
+
+# Step 2: Verify files are now pointers (should be ~130 bytes each)
+wc -c proven/arm/*.tar.gz | tail -1
+
+# Step 3: Prune the LFS object cache (removes downloaded objects no longer
+# referenced by the working copy)
+git lfs prune
+
+# Step 4: Verify space reclaimed
+du -sh .git/lfs/objects/   # should be ~0 bytes
+du -sh .                   # should be ~1 MB total
+```
+
+After any of these options, future `git pull` will not re-download LFS objects thanks to `.lfsconfig`.
+
+```mermaid
+flowchart TD
+    A{"Already cloned<br/>with LFS objects?"}
+    A -->|"Yes, want to build"| B["<b>--restore-cache</b><br/>Copy to local cache + cleanup"]
+    A -->|"Yes, don't need deps"| C["<b>--cleanup-lfs</b><br/>Just restore pointers"]
+    A -->|"Yes, prefer manual"| D["Manual: git checkout + lfs prune"]
+    A -->|No| E["Nothing to do<br/><i>.lfsconfig prevents auto-download</i>"]
+
+    B --> F["Repo ~1 MB<br/>Local cache ~130 MB"]
+    C --> G["Repo ~1 MB"]
+    D --> G
+
+    style B fill:#e8f5e9,stroke:#4caf50
+    style C fill:#e8f4fd,stroke:#2196f3
+    style D fill:#fff3e0,stroke:#ff9800
+    style E fill:#f5f5f5,stroke:#9e9e9e
+```
 
 ## Common Workflows
 
