@@ -166,6 +166,26 @@ flowchart TD
     style E fill:#f5f5f5,stroke:#9e9e9e
 ```
 
+## Build Numbers
+
+Each build increments a per-architecture counter stored in:
+
+- `.build-counter-arm`
+- `.build-counter-intel`
+
+These files are **tracked in git on purpose**, so the counter persists across machines. If you build on your desktop (counter reaches 13) then push, a subsequent build on your laptop continues from 14 instead of restarting at 1. Build numbers appear in internal DMG filenames (`MKVToolNix-{ver}-macos-{arch}-b013-{branch}.dmg`) and correlate binaries with entries in `build-report-{tag}.txt`, which helps when diagnosing failures across machines.
+
+### Resetting the counter
+
+If you cloned this repo for your own use and want to start build numbering fresh on a new machine, delete the counter files before your first build:
+
+```sh
+rm .build-counter-arm .build-counter-intel
+# or just the one for your architecture
+```
+
+The counter then restarts at 1 and increments locally from there. **Do not push resets back to this repo** — doing so would collide with the maintainer's build numbering.
+
 ## Common Workflows
 
 ### Update documentation (no build needed)
