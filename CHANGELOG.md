@@ -1,5 +1,29 @@
 # Changelog
 
+## Housekeeping & tooling (2026-04-19)
+
+**Release management:**
+- Retracted [v98.0-b2026.04.1](../../releases/tag/v98.0-b2026.04.1) — both DMGs removed and replaced with a `RETRACTED.txt` marker explaining the Homebrew library-leak crash. Tag preserved for historical reference (still referenced in `PATCHES.md`).
+
+**Documentation:**
+- Added `proven/NOTICE.md` — third-party attribution for every library bundled into the proven dependency cache. Covers both `proven/arm/` and `proven/intel/`. Addresses GPL/LGPL source-availability and permissive-license attribution for repo-hosted compiled binaries.
+- README: replaced the download bullet list with a release table showing download links and sizes per architecture.
+- README + `docs/build-workflow.md`: documented the shared `.build-counter-{arm,intel}` files — why they're tracked and how to reset on a fresh clone.
+
+**Build-script guards:**
+- `build-local.sh` now refuses `--promote` on any branch except `main` — prevents accidental `proven/` commits from experimental work (commit `cfdf450`).
+- `build-local.sh` now skips the release-ready DMG copy on non-main branches — prevents experimental builds from leaving a file in `release/` that looks like a shippable artifact (commit `22061b4`).
+
+**Upstream cross-references:**
+- `PATCHES.md` now links each build patch to its upstream Codeberg issue: [#6205](https://codeberg.org/mbunkus/mkvtoolnix/issues/6205), [#6206](https://codeberg.org/mbunkus/mkvtoolnix/issues/6206), [#6207](https://codeberg.org/mbunkus/mkvtoolnix/issues/6207), [#6208](https://codeberg.org/mbunkus/mkvtoolnix/issues/6208) — all closed `res:fixed/implemented`, `fixed-in-version/99.0`. Local patches remain active until 99.0 releases.
+
+**CI & security scanning:**
+- Added explicit `permissions:` block to the CI workflow — resolves CodeQL alert #1 (commit `5bff010`).
+- Added gitleaks configuration for custom secret and privacy scanning (public `bc3da08`, private `eb119a9`).
+- Tidied `.gitignore` (commits `82e5b19`, `414b027`).
+
+---
+
 ## Build System: LFS On-Demand (2026-04-15)
 
 Proven dependency cache is now opt-in. Cloning the repo no longer downloads ~534 MB of pre-built dependency archives.
