@@ -272,8 +272,11 @@ function restore_from_proven {
 
 function do_stage_experimental {
   local experimental_dir="${TARGET}/proven-experimental/${ARCH_LABEL}"
+  local proven_dir="${TARGET}/proven/${ARCH_LABEL}"
   local packages_dir="${TARGET}/packages"
   local pkg_files=("${packages_dir}"/*.tar.gz)
+  local pkg_file name
+  local staged=0 skipped=0
 
   if [[ ! -d "${packages_dir}" ]] || [[ ${#pkg_files[@]} -eq 0 ]]; then
     echo "ERROR: No packages found in ${packages_dir}."
@@ -283,10 +286,27 @@ function do_stage_experimental {
 
   echo "==> Staging experimental cache for ${ARCH_LABEL}..."
   mkdir -p "${experimental_dir}"
-  command cp "${pkg_files[@]}" "${experimental_dir}/"
-  echo "==> Staged ${#pkg_files[@]} packages to ${experimental_dir}."
-  echo "    Subsequent builds on this machine will use these instead of proven."
-  echo "    Run --clear-experimental to revert to proven only."
+
+  # Skip any package whose filename already exists in proven/ — the overlay
+  # falls back to proven for anything missing from experimental, so
+  # duplicating those is wasted disk.
+  for pkg_file in "${pkg_files[@]}"; do
+    name="${pkg_file:t}"
+    if [[ -f "${proven_dir}/${name}" ]]; then
+      echo "    Skipping ${name} (already in proven)"
+      skipped=$((skipped + 1))
+    else
+      command cp "${pkg_file}" "${experimental_dir}/"
+      echo "    Staged ${name}"
+      staged=$((staged + 1))
+    fi
+  done
+
+  echo "==> Staged ${staged} new package(s), skipped ${skipped} already in proven."
+  if [[ ${staged} -gt 0 ]]; then
+    echo "    Subsequent builds on this machine will use these instead of proven."
+    echo "    Run --clear-experimental to revert to proven only."
+  fi
 }
 
 function do_clear_experimental {
