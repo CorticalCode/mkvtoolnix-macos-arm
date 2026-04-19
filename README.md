@@ -41,7 +41,7 @@ Use `--restore-cache` to pull pre-built dependencies from Git LFS (~15 min build
 
 The repo tracks `.build-counter-{arm,intel}` so build numbering stays in sync across your machines. See [docs/build-workflow.md#build-numbers](docs/build-workflow.md#build-numbers) if you want to reset them on a fresh clone.
 
-> **Cloned before April 2026?** Your repo may still contain ~534 MB of dependency archives. See [docs/lfs-migration.md](docs/lfs-migration.md) for a one-time cleanup.
+> **Cloned before 2026-04-15?** Your repo may still contain ~534 MB of dependency archives. See [docs/lfs-migration.md](docs/lfs-migration.md) for a one-time cleanup.
 
 ## What this repo contains
 

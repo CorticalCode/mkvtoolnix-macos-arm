@@ -1,6 +1,6 @@
 # LFS Migration: Existing Clones
 
-If you cloned this repo before April 2026, your local copy includes ~534 MB of pre-built dependency archives that are now managed as opt-in downloads. New clones are ~1 MB.
+If you cloned this repo before 2026-04-15, your local copy includes ~534 MB of pre-built dependency archives that are now managed as opt-in downloads. New clones are ~1 MB.
 
 This is a one-time migration. Once complete, your repo stays lightweight and future pulls will not re-download the binaries.
 
