@@ -257,6 +257,17 @@ function do_promote {
   local missing_pkgs=()
   local pkg
 
+  # Precondition: must be on main branch
+  # Promote commits to proven/ — only main should accumulate those commits.
+  local current_branch
+  current_branch=$(cd "${SCRIPT_DIR}" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+  if [[ "${current_branch}" != "main" ]]; then
+    echo "ERROR: Promote refused — current branch is '${current_branch}', not 'main'."
+    echo "       Promotion commits to the proven/ directory; this must only happen on main."
+    echo "       Switch branches and try again: git switch main"
+    exit 1
+  fi
+
   # Precondition: verification must have passed
   if [[ "${VERIFY_PASSED}" != true ]]; then
     echo "ERROR: Cannot promote — post-build verification did not pass."
