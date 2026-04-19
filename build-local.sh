@@ -683,6 +683,28 @@ if [[ "${BUILD_MODE}" != "promote" ]]; then
   # Package DMG
   echo "==> Building DMG..."
   ./build.sh dmg
+
+  # Re-derive VERSION from the actual DMG filename upstream produced.
+  # VERSION is initially derived as ${TAG#release-}, which is correct only when
+  # TAG is a release-X.Y tag. For branch-name tags (e.g. "main") the DMG is
+  # named after the in-source AC_INIT version string (e.g. "98.0" or
+  # "99.0-pre.1" with the version-marker patch), not after the TAG. Without
+  # this correction, post-build verification and the build/release/logs copies
+  # all look for a path that doesn't exist.
+  #
+  # -maxdepth 1 -type f excludes the `latest` symlink upstream creates.
+  # wipe_workspace has already cleared stale DMGs at the top of ${WORK_DIR},
+  # so at most one match is expected; -print | head -1 is defensive.
+  ACTUAL_DMG=$(/usr/bin/find "${WORK_DIR}" -maxdepth 1 -type f -name 'MKVToolNix-*.dmg' -print 2>/dev/null | /usr/bin/head -1)
+  if [[ -n "${ACTUAL_DMG}" ]]; then
+    ACTUAL_VERSION=$(basename "${ACTUAL_DMG}" | /usr/bin/sed -E 's/^MKVToolNix-(.+)\.dmg$/\1/')
+    if [[ "${ACTUAL_VERSION}" != "${VERSION}" ]]; then
+      echo "==> VERSION corrected from '${VERSION}' (from TAG) to '${ACTUAL_VERSION}' (from DMG filename)"
+      VERSION="${ACTUAL_VERSION}"
+    fi
+  else
+    echo "WARNING: upstream build.sh completed but no DMG found in ${WORK_DIR}. Downstream verification and copy steps will likely fail."
+  fi
 fi
 
 # --- Post-build verification ---
