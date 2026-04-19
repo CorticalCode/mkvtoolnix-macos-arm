@@ -32,14 +32,16 @@ fi
 echo "==> Shell: zsh ${ZSH_VERSION}, arch: ${MACHINE_ARCH} (${ARCH_LABEL})"
 
 function wipe_workspace {
-  echo "==> Wiping workspace (preserving proven/, source/, and upstream clone)..."
+  echo "==> Wiping workspace (preserving proven/, proven-experimental/, source/, and upstream clone)..."
 
-  # Clean TARGET (~/opt/) — preserve proven cache and source tarballs
+  # Clean TARGET (~/opt/) — preserve proven cache, experimental cache, and source tarballs
   local preserve_proven="${TARGET}/proven"
+  local preserve_experimental="${TARGET}/proven-experimental"
   local preserve_source="${TARGET}/source"
 
   for item in "${TARGET}"/*; do
     [[ "${item}" == "${preserve_proven}" ]] && continue
+    [[ "${item}" == "${preserve_experimental}" ]] && continue
     [[ "${item}" == "${preserve_source}" ]] && continue
     echo "    Removing ${item:t}/"
     command rm -rf "${item}"
@@ -69,11 +71,15 @@ Usage: build-local.sh [options] [tag]
                     --restore-cache or --cleanup-lfs.
 
 Options:
-  --full            Force full rebuild from source (proven cache untouched)
-  --promote         Archive proven to LFS, replace with current build
-  --restore-cache   Pull proven deps from LFS to local cache and clean up
-  --cleanup-lfs     Restore proven/ to pointer files and prune LFS cache
-  --help            Show this help
+  --full                 Force full rebuild from source (proven cache untouched)
+  --promote              Archive proven to LFS, replace with current build
+  --restore-cache        Pull proven deps from LFS to local cache and clean up
+  --cleanup-lfs          Restore proven/ to pointer files and prune LFS cache
+  --stage-experimental   Copy current packages/ into ~/opt/proven-experimental/
+                         (local-only cache used as an overlay on top of proven/,
+                         takes precedence for any dep present in both)
+  --clear-experimental   Remove the experimental cache for this architecture
+  --help                 Show this help
 
 Default behavior:
   Wipes workspace, restores dependencies from proven cache,
@@ -209,24 +215,27 @@ function run_restore_cache_mode {
 
 function restore_from_proven {
   local proven_dir="${TARGET}/proven/${ARCH_LABEL}"
+  local experimental_dir="${TARGET}/proven-experimental/${ARCH_LABEL}"
   local restored=0
   local missing=()
   local pkg pkg_file
-  local docbook_archive="${proven_dir}/docbook-xsl.tar.gz"
 
-  echo "==> Restoring from proven cache..."
+  if [[ -d "${experimental_dir}" ]]; then
+    echo "==> Restoring from proven cache (with experimental overlay)..."
+  else
+    echo "==> Restoring from proven cache..."
+  fi
 
+  # First pass: confirm every expected package is available in at least one cache
   for pkg in "${EXPECTED_PACKAGES[@]}"; do
-    pkg_file="${proven_dir}/${pkg}.tar.gz"
-    if [[ -f "${pkg_file}" ]]; then
-      continue
+    if [[ ! -f "${experimental_dir}/${pkg}.tar.gz" ]] && [[ ! -f "${proven_dir}/${pkg}.tar.gz" ]]; then
+      echo "    Missing: ${pkg}"
+      missing+=("${pkg}")
     fi
-    echo "    Missing from proven: ${pkg}"
-    missing+=("${pkg}")
   done
 
-  if [[ ! -f "${docbook_archive}" ]]; then
-    echo "    Missing from proven: docbook-xsl"
+  if [[ ! -f "${experimental_dir}/docbook-xsl.tar.gz" ]] && [[ ! -f "${proven_dir}/docbook-xsl.tar.gz" ]]; then
+    echo "    Missing: docbook-xsl"
     missing+=("docbook-xsl")
   fi
 
@@ -235,19 +244,62 @@ function restore_from_proven {
     return 1
   fi
 
+  # Restore pass: experimental takes precedence over proven for any package present in both
   for pkg in "${EXPECTED_PACKAGES[@]}"; do
-    pkg_file="${proven_dir}/${pkg}.tar.gz"
-    echo "    Restoring ${pkg}..."
+    if [[ -f "${experimental_dir}/${pkg}.tar.gz" ]]; then
+      pkg_file="${experimental_dir}/${pkg}.tar.gz"
+      echo "    Restoring ${pkg} (experimental)..."
+    else
+      pkg_file="${proven_dir}/${pkg}.tar.gz"
+      echo "    Restoring ${pkg}..."
+    fi
     (cd "${TARGET}" && tar xzf "${pkg_file}")
     restored=$((restored + 1))
   done
 
-  echo "    Restoring docbook-xsl..."
-  (cd "${TARGET}" && tar xzf "${docbook_archive}")
+  if [[ -f "${experimental_dir}/docbook-xsl.tar.gz" ]]; then
+    echo "    Restoring docbook-xsl (experimental)..."
+    (cd "${TARGET}" && tar xzf "${experimental_dir}/docbook-xsl.tar.gz")
+  else
+    echo "    Restoring docbook-xsl..."
+    (cd "${TARGET}" && tar xzf "${proven_dir}/docbook-xsl.tar.gz")
+  fi
   restored=$((restored + 1))
 
   echo "==> Restored ${restored} packages. Missing: 0."
   return 0
+}
+
+function do_stage_experimental {
+  local experimental_dir="${TARGET}/proven-experimental/${ARCH_LABEL}"
+  local packages_dir="${TARGET}/packages"
+  local pkg_files=("${packages_dir}"/*.tar.gz)
+
+  if [[ ! -d "${packages_dir}" ]] || [[ ${#pkg_files[@]} -eq 0 ]]; then
+    echo "ERROR: No packages found in ${packages_dir}."
+    echo "       Run a build first, then --stage-experimental."
+    exit 1
+  fi
+
+  echo "==> Staging experimental cache for ${ARCH_LABEL}..."
+  mkdir -p "${experimental_dir}"
+  command cp "${pkg_files[@]}" "${experimental_dir}/"
+  echo "==> Staged ${#pkg_files[@]} packages to ${experimental_dir}."
+  echo "    Subsequent builds on this machine will use these instead of proven."
+  echo "    Run --clear-experimental to revert to proven only."
+}
+
+function do_clear_experimental {
+  local experimental_dir="${TARGET}/proven-experimental/${ARCH_LABEL}"
+
+  if [[ ! -d "${experimental_dir}" ]]; then
+    echo "==> No experimental cache for ${ARCH_LABEL}."
+    return 0
+  fi
+
+  echo "==> Clearing experimental cache for ${ARCH_LABEL}..."
+  command rm -rf "${experimental_dir}"
+  echo "==> Cleared. Future builds use proven cache only."
 }
 
 function do_promote {
@@ -347,11 +399,13 @@ VERIFY_PASSED=false
 # Parse arguments
 while [[ -n $1 ]]; do
   case $1 in
-    --full)       BUILD_MODE="full" ;;
-    --promote)    BUILD_MODE="promote" ;;
-    --restore-cache)  BUILD_MODE="restore-cache" ;;
-    --cleanup-lfs)    BUILD_MODE="cleanup-lfs" ;;
-    --help|-h)    usage ;;
+    --full)                BUILD_MODE="full" ;;
+    --promote)             BUILD_MODE="promote" ;;
+    --restore-cache)       BUILD_MODE="restore-cache" ;;
+    --cleanup-lfs)         BUILD_MODE="cleanup-lfs" ;;
+    --stage-experimental)  BUILD_MODE="stage-experimental" ;;
+    --clear-experimental)  BUILD_MODE="clear-experimental" ;;
+    --help|-h)             usage ;;
     -*)           echo "Unknown option: $1"; usage ;;
     *)            TAG="$1" ;;
   esac
@@ -362,6 +416,17 @@ done
 if [[ "${BUILD_MODE}" == "cleanup-lfs" ]]; then
   run_cleanup_lfs_mode
   exit 0
+fi
+
+# Handle experimental cache ops early (no tag, clone, or specs needed)
+if [[ "${BUILD_MODE}" == "stage-experimental" ]]; then
+  do_stage_experimental
+  exit $?
+fi
+
+if [[ "${BUILD_MODE}" == "clear-experimental" ]]; then
+  do_clear_experimental
+  exit $?
 fi
 
 # Handle --restore-cache early (no tag, clone, or specs needed)
