@@ -43,6 +43,8 @@ Current release: **v98.0-b2026.04.3** (Apple Silicon + Intel). The build process
 
 **Source:** MKVToolNix forum thread -- multiple users reported this fix for Qt6 builds.
 
+**Upstream:** [Codeberg #6205](https://codeberg.org/mbunkus/mkvtoolnix/issues/6205) — filed 2026-04-14, closed `res:fixed/implemented`, `fixed-in-version/99.0`.
+
 ---
 
 ### 2. Specs updates (`patches/specs-updates.patch`)
@@ -65,11 +67,15 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 **Shelf life:** Unnecessary when upstream bumps zlib or fixes the URL.
 
+**Upstream:** Upstream has moved to zlib 1.3.2 (URL currently 200 OK on zlib.net as of 2026-04-19). Our 1.3.1 URL fix becomes moot when we retire patches at 99.0. The structural issue (zlib.net deletes old tarballs on every release) recurs — filing a switch to the GitHub release mirror would prevent recurrence. Not filed; low priority since mbunkus handles via version bumps.
+
 **2b. Qt version bump to 6.10.2**
 
 **Problem:** Qt 6.10.0 has a compilation bug on ARM (`__yield` without `arm_acle.h` include) and community-reported UI issues (progress bar, preferences truncation, pane resizing, macOS 26 rendering).
 
 **Fix:** Bump Qt from 6.10.0 to 6.10.2 with updated download URL and SHA256 checksum. Note: Qt 6.10.2 does NOT include the `arm_acle.h` fix — the Qt source patch is still required (see section 5).
+
+**Upstream:** Covered by mjuhasz [PR #6202](https://codeberg.org/mbunkus/mkvtoolnix/pulls/6202) (closed; equivalent work applied by mbunkus). Separate filing not needed.
 
 ---
 
@@ -89,6 +95,8 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 **Size impact:** 453 KB uncompressed, 138 KB compressed in DMG.
 
+**Upstream:** Not yet filed. Lower priority — optimization/cleanup rather than a bug.
+
 ---
 
 ### 4. Strip debug symbols from dylibs (`patches/strip-dylibs.patch`)
@@ -105,6 +113,8 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 **Size impact:** 6 MB uncompressed (84.8 -> 78.9 MB), 0.9 MB compressed in DMG.
 
+**Upstream:** [Codeberg #6206](https://codeberg.org/mbunkus/mkvtoolnix/issues/6206) — filed 2026-04-14, closed `res:fixed/implemented`, `fixed-in-version/99.0`.
+
 ---
 
 ### 6. cmark Release build type (`patches/cmark-release-build.patch`)
@@ -114,6 +124,8 @@ This patch combines two changes to the same file to avoid context conflicts when
 **Problem:** The `build_cmark` function calls cmake without `-DCMAKE_BUILD_TYPE`. CMake defaults to an empty build type with no optimization flags, so cmark compiles at `-O0`.
 
 **Fix:** Add `-DCMAKE_BUILD_TYPE=Release` to the cmake arguments. This enables standard `-O2 -DNDEBUG` optimization.
+
+**Upstream:** [Codeberg #6207](https://codeberg.org/mbunkus/mkvtoolnix/issues/6207) — filed 2026-04-14, closed `res:fixed/implemented`, `fixed-in-version/99.0`.
 
 ---
 
@@ -133,7 +145,7 @@ This patch combines two changes to the same file to avoid context conflicts when
 
 **Reported by:** Adam, Ryu67, and Vek239 on the MKVToolNix forum, 2026-04-15.
 
-**Should be filed upstream:** Yes — Codeberg issue for `-force-pkg-config` behavior in the macOS build script.
+**Upstream:** [Codeberg #6208](https://codeberg.org/mbunkus/mkvtoolnix/issues/6208) — filed 2026-04-15, closed `res:fixed/implemented`, `fixed-in-version/99.0`.
 
 ---
 
@@ -188,6 +200,8 @@ This patch combines two changes to the same file to avoid context conflicts when
 **History:** This patch was incorrectly retired on 2026-04-13 based on reports that Qt 6.10.2 included the fix upstream. Inspection of the actual Qt 6.10.2 source confirmed the fix is NOT present. The retirement went undetected because the proven cache contained pre-compiled Qt that was built WITH the patch — a smart-restore build never recompiled Qt, masking the issue. A `--full` rebuild on 2026-04-14 exposed the missing fix. The patch was restored.
 
 **Lesson:** Never retire a patch based on release notes alone. Always verify the fix in the actual upstream source, and always test with `--full` (not smart-restore) to confirm.
+
+**Upstream:** Qt project — not yet reported at bugreports.qt.io. Would need to be filed against Qt rather than MKVToolNix.
 
 ---
 
