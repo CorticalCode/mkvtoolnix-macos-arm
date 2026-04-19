@@ -742,12 +742,23 @@ if [[ -f "${DMG_PATH}" ]]; then
   DMG_RELEASE_NAME="MKVToolNix-${VERSION}-macos-${ARCH_LABEL}.dmg"
   LOG_NAME="MKVToolNix-${VERSION}-macos-${ARCH_LABEL}-${BUILD_LABEL}-${BRANCH}.log"
   command cp "${DMG_PATH}" "${BUILD_DIR}/${DMG_NAME}"
-  command cp "${DMG_PATH}" "${RELEASE_DIR}/${DMG_RELEASE_NAME}"
   command cp "${LOG_FILE}" "${LOG_DIR}/${LOG_NAME}"
+
+  # Release-ready DMG (no branch suffix) — only emit on main. Other branches
+  # would produce a file that looks releasable but isn't; preventing the copy
+  # removes that footgun.
+  if [[ "${BRANCH}" == "main" ]]; then
+    command cp "${DMG_PATH}" "${RELEASE_DIR}/${DMG_RELEASE_NAME}"
+  fi
+
   echo "==> Done!"
   echo "    Build output: ${DMG_PATH}"
   echo "    Internal: ${BUILD_DIR}/${DMG_NAME}"
-  echo "    Release:  ${RELEASE_DIR}/${DMG_RELEASE_NAME}"
+  if [[ "${BRANCH}" == "main" ]]; then
+    echo "    Release:  ${RELEASE_DIR}/${DMG_RELEASE_NAME}"
+  else
+    echo "    Release:  (skipped — not on main)"
+  fi
   echo "    Log:      ${LOG_DIR}/${LOG_NAME}"
 else
   echo "==> DMG not found at expected path. Check ${WORK_DIR} for output."
