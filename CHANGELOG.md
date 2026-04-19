@@ -102,6 +102,8 @@ Ad-hoc code signing for macOS Sequoia 15.1+ compatibility. Both Apple Silicon an
 
 ## v98.0-b2026.04.1 (2026-04-14)
 
+> ⚠️ **RETRACTED 2026-04-19** — this build crashes on launch unless specific Homebrew packages are present. Both DMG assets have been removed from the GitHub release. Use [v98.0-b2026.04.3](../../releases/tag/v98.0-b2026.04.3) instead. See `proven/NOTICE.md`, this file's Housekeeping entry for 2026-04-19, and upstream issue [#6208](https://codeberg.org/mbunkus/mkvtoolnix/issues/6208) for the full root cause.
+
 First combined Apple Silicon + Intel release with optimized builds.
 
 **Downloads:**
