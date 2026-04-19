@@ -186,6 +186,49 @@ rm .build-counter-arm .build-counter-intel
 
 The counter then restarts at 1 and increments locally from there. **Do not push resets back to this repo** — doing so would collide with the maintainer's build numbering.
 
+## Experimental Dependency Cache
+
+For experimental builds (e.g. testing against upstream `main` with a bumped Qt version), recompiling multi-hour dependencies like Qt on every iteration is wasteful. The proven cache shouldn't absorb those builds — it's versioned to the current release — so there's a second, purely-local tier:
+
+- `~/opt/proven-experimental/{arm,intel}/` — never pushed, never committed, machine-specific.
+
+### How the overlay works
+
+`build-local.sh` checks the experimental cache **first** for each expected package, falling back to the main proven cache. Packages are matched by exact filename, which includes the version:
+
+- `qt-everywhere-src-6.11.0.tar.gz` lives in experimental (you staged it while testing upstream main)
+- `qt-everywhere-src-6.10.2.tar.gz` lives in proven (the current release's Qt)
+
+Both are safe to coexist — the build picks whichever the active `specs.sh` + `QTVER` combination is looking for.
+
+### Staging and clearing
+
+After a successful experimental build (packages are in `~/opt/packages/`):
+
+```sh
+./build-local.sh --stage-experimental
+```
+
+Copies all built package tarballs into `~/opt/proven-experimental/{arch}/`. Subsequent builds that need any of those versions restore them in seconds instead of recompiling.
+
+To revert to the main proven cache only (e.g. when you're done experimenting or want a clean slate):
+
+```sh
+./build-local.sh --clear-experimental
+```
+
+Deletes `~/opt/proven-experimental/{arch}/` for the current architecture. The main proven cache is untouched.
+
+### When to stage vs when to promote
+
+| Use case | Action |
+|----------|--------|
+| You built Qt 6.11 against upstream main; iterating on patches | `--stage-experimental` — keeps Qt compiled between runs |
+| The experimental work graduates to a real release | Retire local patches, merge branch, run normal `--full` build, then `--promote` |
+| You want to test a totally different Qt configuration | `--clear-experimental`, then build, then `--stage-experimental` again |
+
+`--stage-experimental` never touches git or LFS. `--promote` still behaves exactly as before and still refuses to run outside the `main` branch.
+
 ## Common Workflows
 
 ### Update documentation (no build needed)
