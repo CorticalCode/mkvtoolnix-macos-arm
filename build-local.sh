@@ -368,7 +368,8 @@ function do_promote {
     echo "    Archiving current ${ARCH_LABEL} proven to LFS..."
     mkdir -p "${repo_proven}"
     command cp "${proven_dir}"/*.tar.gz "${repo_proven}/"
-    (cd "${SCRIPT_DIR}" && git add "proven/${ARCH_LABEL}/"*.tar.gz && git diff --cached --quiet || git commit -m "archive: ${ARCH_LABEL} proven deps before promotion $(date +%Y-%m-%d)" -- "proven/${ARCH_LABEL}/")
+    (cd "${repo_proven}" && for f in *.tar.gz; do shasum -a 256 "$f" > "$f.sha256"; done)
+    (cd "${SCRIPT_DIR}" && git add "proven/${ARCH_LABEL}/"*.tar.gz "proven/${ARCH_LABEL}/"*.sha256 && git diff --cached --quiet || git commit -m "archive: ${ARCH_LABEL} proven deps before promotion $(date +%Y-%m-%d)" -- "proven/${ARCH_LABEL}/")
   fi
 
   # Step 2: Build new proven set in temp directory
@@ -397,7 +398,8 @@ function do_promote {
   # Step 5: Update LFS with new proven
   mkdir -p "${repo_proven}"
   command cp "${proven_dir}"/*.tar.gz "${repo_proven}/"
-  (cd "${SCRIPT_DIR}" && git add "proven/${ARCH_LABEL}/"*.tar.gz && git diff --cached --quiet || git commit -m "promote: ${ARCH_LABEL} proven deps $(date +%Y-%m-%d)" -- "proven/${ARCH_LABEL}/")
+  (cd "${repo_proven}" && for f in *.tar.gz; do shasum -a 256 "$f" > "$f.sha256"; done)
+  (cd "${SCRIPT_DIR}" && git add "proven/${ARCH_LABEL}/"*.tar.gz "proven/${ARCH_LABEL}/"*.sha256 && git diff --cached --quiet || git commit -m "promote: ${ARCH_LABEL} proven deps $(date +%Y-%m-%d)" -- "proven/${ARCH_LABEL}/")
 
   echo "==> Promotion complete. Proven cache updated."
   echo "    LFS archive committed. Push when ready."
