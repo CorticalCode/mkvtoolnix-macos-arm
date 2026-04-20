@@ -850,19 +850,23 @@ if [[ -f "${DMG_PATH}" ]]; then
   LOG_NAME="MKVToolNix-${VERSION}-macos-${ARCH_LABEL}-${BUILD_LABEL}-${BRANCH}.log"
   command cp "${DMG_PATH}" "${BUILD_DIR}/${DMG_NAME}"
   command cp "${LOG_FILE}" "${LOG_DIR}/${LOG_NAME}"
+  (cd "${BUILD_DIR}" && shasum -a 256 "${DMG_NAME}" > "${DMG_NAME}.sha256")
 
   # Release-ready DMG (no branch suffix) — only emit on main. Other branches
   # would produce a file that looks releasable but isn't; preventing the copy
   # removes that footgun.
   if [[ "${BRANCH}" == "main" ]]; then
     command cp "${DMG_PATH}" "${RELEASE_DIR}/${DMG_RELEASE_NAME}"
+    (cd "${RELEASE_DIR}" && shasum -a 256 "${DMG_RELEASE_NAME}" > "${DMG_RELEASE_NAME}.sha256")
   fi
 
   echo "==> Done!"
   echo "    Build output: ${DMG_PATH}"
   echo "    Internal: ${BUILD_DIR}/${DMG_NAME}"
+  echo "    SHA256:   ${BUILD_DIR}/${DMG_NAME}.sha256"
   if [[ "${BRANCH}" == "main" ]]; then
     echo "    Release:  ${RELEASE_DIR}/${DMG_RELEASE_NAME}"
+    echo "    SHA256:   ${RELEASE_DIR}/${DMG_RELEASE_NAME}.sha256"
   else
     echo "    Release:  (skipped — not on main)"
   fi
