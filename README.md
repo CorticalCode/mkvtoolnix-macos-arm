@@ -21,6 +21,11 @@ These are separate architecture-specific builds, not a universal binary. Apple m
 xattr -cr /Applications/MKVToolNix*.app
 ```
 
+**Verify integrity:** Each DMG ships with a matching `.sha256` file in the release assets. Download both, then:
+```sh
+shasum -a 256 -c MKVToolNix-98.0-macos-apple-silicon.dmg.sha256
+```
+
 ## Build locally
 
 Requirements: Xcode CLI tools, ~10 GB disk space, 1-3 hours (first build; subsequent builds reuse cached dependencies and take ~15 minutes).
