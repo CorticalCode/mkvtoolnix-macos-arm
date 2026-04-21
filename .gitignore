@@ -3,21 +3,6 @@ build/
 release/
 logs/
 
-# Agent config
-
-
-
-/
-/
-/
-/
-rules
-/
-*
-/
-
-.gitleaks.toml
-
 # macOS
 .DS_Store
 **/.DS_Store
