@@ -8,7 +8,7 @@ Index of every DMG build produced by `build-local.sh` with provenance, release m
 |-------|---------|
 | **#** | Build counter (`.build-counter-{arm,intel}`, advances on every successful build) |
 | **Arch** | `arm` (Apple Silicon) or `intel` (x86_64) |
-| **Type** | `main` (built on main branch) · `feature` (feature/fix branch) · `experimental` (experimental/* branch) |
+| **Type** | `main` (built on main branch) · `feature` (feature/fix branch) · `experimental` (experimental/* branch) · `fork` (`tools/build-fork.sh` build from an upstream worktree) |
 | **Date** | Local time of build completion |
 | **Branch/Slug** | Git branch name at build time (sanitized for filename) |
 | **DMG** | Filename in `build/`, or `—` if missing |
@@ -40,6 +40,8 @@ Index of every DMG build produced by `build-local.sh` with provenance, release m
 | b017 | arm | experimental | 2026-04-19 17:58 | exp-audio-fix | `MKVToolNix-98.0-b017-exp-audio-fix-macos-apple-silicon.dmg` | `520a649a31` | `logs/MKVToolNix-98.0-b017-exp-audio-fix-macos-apple-silicon.log` | — | #6209 audio default fix testing (alt naming) |
 | b018 | arm | experimental | 2026-04-19 18:49 | exp-browse-default | `MKVToolNix-98.0-b018-exp-browse-default-macos-apple-silicon.dmg` | `01e570f929` | `logs/MKVToolNix-98.0-macos-arm-b018-experimental-macos-browse-default.log` | — | #6211 original (pre-redirect) hardcoded browse default |
 | b019 | arm | main | 2026-04-20 21:38 | main | **deleted** | — | `logs/MKVToolNix-98.0-macos-arm-b019-main.log` | — | **Contaminated build** (tarball had yesterday's experimental content); deleted 2026-04-21 |
+| b020 | arm | fork | 2026-04-21 13:09 | 6211-audio-browse-dir (hash `23818e`) | `MKVToolNix-98.0-macos-arm-b020-fork-6211-audio-browse-dir-23818e.dmg` | `(see .sha256)` | `build-fork-6211-audio-browse-dir-b020-23818e.log` | — | **First `tools/build-fork.sh` build.** Worktree `fix/6211-audio-browse-dir` + experimental Qt 6.11.0 / zlib 1.3.2 overlay. Ad-hoc signed. VERSIONNAME `99pre-exp-6211-audio-browse-dir-b020-23818e`. 3 prior attempts failed (no autogen, missing submodules, codesign cert missing + dual Qt); fixes applied to script before this run. Fork builds never copy to release/. |
+| b021 | arm | fork | 2026-04-22 05:16 | 6211-audio-browse-dir (hash `f3bbd9`) | `MKVToolNix-98.0-arm-b021-fork-6211-audio-browse-dir-f3bbd9.dmg` | `(see .sha256)` | `build-fork-6211-audio-browse-dir-b021-f3bbd9.log` | — | **Refactor per mbunkus's review on PR #6213** — extracted the 3-line inline load block into `loadLastProgramRunnerAudioDir(reg)` helper matching the `loadXyz(reg)` pattern. Ad-hoc signed. VERSIONNAME `99pre-exp-6211-audio-browse-dir-b021-f3bbd9`. 6/6 walkthrough tests passed. Commit amended (`b7052b4a8` → `d64df53870`) and force-pushed to PR #6213. First DMG with new naming convention (dropped `-macos-` from local builds). |
 
 ## INTEL (x86_64) builds
 
@@ -53,7 +55,7 @@ Index of every DMG build produced by `build-local.sh` with provenance, release m
 
 ## Summary
 
-- **Total builds preserved:** 21 (16 arm + 5 intel)
+- **Total builds preserved:** 22 (17 arm + 5 intel)
 - **Missing from preservation:** 3 (arm b015, b016, b019)
 - **Currently shipped:** arm b013 + intel b005 (both verified by SHA256 match against GitHub release v98.0-b2026.04.3 assets)
 - **Retracted:** v98.0-b2026.04.1 (arm b010 + intel b001 probable — Homebrew leak crash; assets removed from GitHub)
@@ -78,4 +80,8 @@ Column conventions:
 - Use `—` for not-applicable or empty cells (not blank)
 - Bold a build number (`**b013**`) to mark its status as currently-shipped
 - SHA256 is first 10 chars only; full value lives in the paired `.sha256` file
+
+## Naming convention change — 2026-04-22
+
+On 2026-04-22 the local-build DMG naming convention dropped the redundant `-macos-` segment. Existing 23 DMGs in `build/` were renamed accordingly and `.sha256` sidecars regenerated (hash values unchanged). Rows for b001-b020 above retain their **original-at-creation** filenames for historical accuracy; the actual files on disk now use the new convention. SHA256 (first 10 chars in the DMG column would match the sidecar file content) remains the authoritative provenance anchor regardless of filename. See `CHANGELOG.md` entry dated 2026-04-22 for full details.
 - Date format: `YYYY-MM-DD HH:MM` local time

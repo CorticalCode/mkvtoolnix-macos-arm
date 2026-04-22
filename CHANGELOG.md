@@ -1,5 +1,33 @@
 # Changelog
 
+## Fork/experimental build tooling + DMG naming cleanup (2026-04-22)
+
+**Fork build tooling:**
+- Added `tools/build-fork.sh` — compiles MKVToolNix from a worktree source directly, bypassing the production tarball pipeline. Handles proven + experimental dep overlay (Qt 6.11.0, zlib 1.3.2), injects a dynamic `VERSIONNAME` for in-app build identification, verifies a caller-specified symbol is present in the binary before reporting success, and writes exclusively to `build/` (never `release/`). Created in support of the first PR-style upstream contribution, PR [#6213](https://codeberg.org/mbunkus/mkvtoolnix/pulls/6213).
+
+**DMG naming convention (local dev only):**
+- Local build DMG filenames dropped the redundant `-macos-` segment. This wrapper only builds for macOS; the token added nothing. New pattern: `MKVToolNix-{ver}-{arch}-b{NNN}-{suffix}.dmg`.
+- Release DMGs in `release/` and on GitHub keep `-macos-apple-silicon` / `-macos-intel` for end-user clarity.
+- Existing 23 DMGs in `build/` renamed to new convention; `.sha256` sidecars regenerated (hash values unchanged — SHA256 is a content hash).
+- `build-local.sh`, `tools/build-fork.sh`, and `` §2 updated to match.
+
+**Upstream contribution path extended:**
+- Filed PR [#6213](https://codeberg.org/mbunkus/mkvtoolnix/pulls/6213) upstream for issue [#6211](https://codeberg.org/mbunkus/mkvtoolnix/issues/6211) (audio-file browse dialog default directory). First PR-style contribution from `corticalcode`; prior work was filed as issues and implemented by mbunkus.
+
+---
+
+## Build-history index + housekeeping (2026-04-20 / 2026-04-21)
+
+**Documentation:**
+- Added `docs/build-history.md` — complete DMG preservation index for all arm + intel builds with provenance, SHA256 mapping, and release status. 21 builds cataloged.
+
+**Repo hygiene:**
+- Added SHA256 checksums for proven cache tarballs in `proven/{arm,intel}/`.
+- `.gitignore` trimmed; strategic patterns (`/`, `/`, `/`, etc.) migrated to per-clone `.git/info/exclude`. Public repo's `.gitignore` is now narrower and project-universal.
+- Added `.cz.toml` for commitizen commit-message validation.
+
+---
+
 ## Housekeeping & tooling (2026-04-19)
 
 **Release management:**

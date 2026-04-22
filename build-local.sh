@@ -847,9 +847,9 @@ if [[ -f "${DMG_PATH}" ]]; then
   BRANCH="${BRANCH//\//-}"
 
   BUILD_LABEL="b$(printf '%03d' ${BUILD_NUM})"
-  DMG_NAME="MKVToolNix-${VERSION}-macos-${ARCH_LABEL}-${BUILD_LABEL}-${BRANCH}.dmg"
+  DMG_NAME="MKVToolNix-${VERSION}-${ARCH_LABEL}-${BUILD_LABEL}-${BRANCH}.dmg"
   DMG_RELEASE_NAME="MKVToolNix-${VERSION}-macos-${ARCH_LABEL}.dmg"
-  LOG_NAME="MKVToolNix-${VERSION}-macos-${ARCH_LABEL}-${BUILD_LABEL}-${BRANCH}.log"
+  LOG_NAME="MKVToolNix-${VERSION}-${ARCH_LABEL}-${BUILD_LABEL}-${BRANCH}.log"
   command cp "${DMG_PATH}" "${BUILD_DIR}/${DMG_NAME}"
   command cp "${LOG_FILE}" "${LOG_DIR}/${LOG_NAME}"
   (cd "${BUILD_DIR}" && shasum -a 256 "${DMG_NAME}" > "${DMG_NAME}.sha256")
