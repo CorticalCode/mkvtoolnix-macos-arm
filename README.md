@@ -56,7 +56,10 @@ The repo tracks `.build-counter-{arm,intel}` so build numbering stays in sync ac
 - `config/config.local.sh` -- config overlay (ad-hoc signing, optimization flags)
 - `patches/` -- fixes for the upstream build scripts
 - `tools/` -- OpenPGP trust artifacts for tarball verification + helper scripts
+- `.githooks/` -- repo git hooks (activate with `git config core.hooksPath .githooks`)
 - `.github/workflows/` -- CI: builds + publishes DMGs (`build.yml`), monthly key drift check (`verify-mbunkus-key.yml`)
+
+See [docs/contributing.md](docs/contributing.md) for hook setup and contribution rules.
 
 ## Credits
 
