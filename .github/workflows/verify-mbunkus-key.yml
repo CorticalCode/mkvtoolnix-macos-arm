@@ -1,0 +1,110 @@
+name: Verify mbunkus key against multiple sources
+
+# Drift detection for tools/mbunkus-pubkey.asc + tools/mbunkus-fingerprint.txt.
+# Fetches the primary fingerprint from three independent channels and compares
+# each against the pinned text file. Fails (and emails the maintainer) if any
+# source disagrees — likely signals key rotation, revocation, or single-channel
+# compromise. Does not auto-update; drift always requires a human-reviewed PR.
+
+on:
+  schedule:
+    # 12:00 UTC on the 1st of each month
+    - cron: '0 12 1 * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tools/mbunkus-pubkey.asc'
+      - 'tools/mbunkus-fingerprint.txt'
+      - '.github/workflows/verify-mbunkus-key.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read pinned fingerprint
+        id: pinned
+        run: |
+          fp=$(tr -d '[:space:]' < tools/mbunkus-fingerprint.txt)
+          if [[ ! "$fp" =~ ^[0-9A-F]{40}$ ]]; then
+            echo "::error::Pinned fingerprint is malformed: $fp"
+            exit 1
+          fi
+          echo "fp=$fp" >> "$GITHUB_OUTPUT"
+          echo "Pinned: $fp"
+
+      - name: Verify embedded key fingerprint matches pinned text
+        run: |
+          embedded=$(gpg --show-keys --with-colons --with-fingerprint tools/mbunkus-pubkey.asc \
+            | awk -F: '$1=="fpr" {print $10; exit}')
+          if [[ "$embedded" != "${{ steps.pinned.outputs.fp }}" ]]; then
+            echo "::error::Embedded key (${embedded}) does not match pinned (${{ steps.pinned.outputs.fp }})"
+            exit 1
+          fi
+          echo "Embedded matches pinned: $embedded"
+
+      - name: Cross-check three independent sources
+        run: |
+          set -eu
+          PINNED='${{ steps.pinned.outputs.fp }}'
+          mismatch=0
+
+          check_source() {
+            local name="$1"
+            local url="$2"
+            local tmp
+            tmp=$(mktemp)
+            if ! curl --fail --silent --show-error --location "$url" -o "$tmp"; then
+              echo "::warning::$name unreachable: $url"
+              return 1
+            fi
+            local fp
+            fp=$(gpg --show-keys --with-colons --with-fingerprint "$tmp" 2>/dev/null \
+                  | awk -F: '$1=="fpr" {print $10; exit}')
+            if [[ -z "$fp" ]]; then
+              echo "::warning::$name returned content but no fingerprint parsed: $url"
+              return 1
+            fi
+            if [[ "$fp" != "$PINNED" ]]; then
+              echo "::error::$name returned $fp, expected $PINNED ($url)"
+              return 2
+            fi
+            echo "OK: $name → $fp"
+            return 0
+          }
+
+          # Reachability failures (return 1) get flagged as warnings; we still
+          # require all three to be reachable AND match for the workflow to
+          # pass. Mismatches (return 2) are hard errors regardless of how many
+          # sources agreed otherwise.
+          unreachable=0
+          mismatch=0
+          for src in \
+            "bunkus.org|https://bunkus.org/gpg-pub-moritzbunkus.txt" \
+            "Codeberg|https://codeberg.org/mbunkus.gpg" \
+            "keys.openpgp.org|https://keys.openpgp.org/vks/v1/by-fingerprint/${PINNED}"
+          do
+            name="${src%%|*}"
+            url="${src##*|}"
+            check_source "$name" "$url" || rc=$?
+            case "${rc:-0}" in
+              0) ;;
+              1) unreachable=$((unreachable+1)) ;;
+              2) mismatch=$((mismatch+1)) ;;
+            esac
+            unset rc
+          done
+
+          if [[ $mismatch -gt 0 ]]; then
+            echo "::error::Fingerprint drift detected — review tools/ and refresh per tools/README.md"
+            exit 1
+          fi
+          if [[ $unreachable -gt 1 ]]; then
+            echo "::error::Multiple sources unreachable — verification inconclusive"
+            exit 1
+          fi
+          echo "All available sources agree on pinned fingerprint."
