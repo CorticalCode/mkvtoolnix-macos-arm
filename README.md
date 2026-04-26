@@ -44,6 +44,8 @@ The DMG will be at `~/tmp/compile/MKVToolNix-98.0.dmg`.
 
 Use `--restore-cache` to pull pre-built dependencies from Git LFS (~15 min build). Omit it to build everything from source (~1-3 hours). Use `--full` to force a complete rebuild. See [docs/proven-cache.md](docs/proven-cache.md) for details.
 
+Every build verifies the upstream source tarball against Moritz Bunkus's published OpenPGP signature before running — see [docs/tarball-verification.md](docs/tarball-verification.md) for the threat model, sequence diagrams, and what to do if verification fails.
+
 The repo tracks `.build-counter-{arm,intel}` so build numbering stays in sync across your machines. See [docs/build-workflow.md#build-numbers](docs/build-workflow.md#build-numbers) if you want to reset them on a fresh clone.
 
 > **Cloned before 2026-04-15?** Your repo may still contain ~534 MB of dependency archives. See [docs/lfs-migration.md](docs/lfs-migration.md) for a one-time cleanup.
@@ -53,7 +55,8 @@ The repo tracks `.build-counter-{arm,intel}` so build numbering stays in sync ac
 - `build-local.sh` -- clones upstream source, applies patches, runs the build
 - `config/config.local.sh` -- config overlay (ad-hoc signing, optimization flags)
 - `patches/` -- fixes for the upstream build scripts
-- `.github/workflows/build.yml` -- CI that builds and publishes DMGs
+- `tools/` -- OpenPGP trust artifacts for tarball verification + helper scripts
+- `.github/workflows/` -- CI: builds + publishes DMGs (`build.yml`), monthly key drift check (`verify-mbunkus-key.yml`)
 
 ## Credits
 

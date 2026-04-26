@@ -1,5 +1,38 @@
 # Changelog
 
+## OpenPGP verification of upstream tarball (2026-04-25)
+
+**Supply-chain hardening:** every build now verifies the upstream
+`mkvtoolnix-${VERSION}.tar.xz` against an OpenPGP signature published by
+[Moritz Bunkus](https://www.bunkus.org/) before the build script runs.
+
+- Added `tools/mbunkus-pubkey.asc` — Moritz Bunkus's full public key,
+  fetched from `https://bunkus.org/gpg-pub-moritzbunkus.txt`. Primary
+  fingerprint `D9199745B0545F2E8197062B0F92290A445B9007` cross-verified
+  on 2026-04-25 against four independent channels (bunkus.org,
+  Codeberg, keys.openpgp.org, keyserver.ubuntu.com).
+- Added `tools/mbunkus-fingerprint.txt` — pinned primary FP. Build
+  script verifies the embedded `.asc` matches this before trusting it.
+- `build-local.sh` pre-flight: cross-checks pinned FP, downloads
+  `.tar.xz.sig` if missing, verifies signature using a temporary
+  keyring (no user-keyring touch), hard-fails with a remediation
+  message on any failure.
+- Added `.github/workflows/verify-mbunkus-key.yml` — monthly cron job
+  cross-checks the pinned fingerprint against three independent
+  sources. Email notification on drift; never auto-updates.
+- Added `docs/tarball-verification.md` — full guide with sequence
+  diagrams, threat model, and refresh procedure.
+- Added `tools/README.md` — provenance and operations notes.
+
+**Why:** upstream's `packaging/macos/build.sh` does not checksum or
+verify the mkvtoolnix tarball (`build_package /literal-path` mode
+bypasses `retrieve_file`'s checksum step). That gap allowed the
+2026-04-20 contamination incident; this closes it for both accidental
+local replacement and (the stronger guarantee) a hypothetical
+`mkvtoolnix.download` server compromise.
+
+---
+
 ## Fork/experimental build tooling + DMG naming cleanup (2026-04-22)
 
 **Fork build tooling:**
