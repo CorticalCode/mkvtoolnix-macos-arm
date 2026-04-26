@@ -14,11 +14,11 @@ on faith. If the file at `~/opt/source/mkvtoolnix-${VERSION}.tar.xz` is
 silently replaced (server compromise, accidental local overwrite, a
 buggy helper script), the next build picks it up with no detection.
 
-That gap is exactly what allowed the
-[2026-04-20 contamination incident](..//shared/issues/):
-an experimental source tree was staged into the official tarball slot,
-the next "production" build silently used it, and the resulting DMG
-contained patched experimental code presented as a clean release.
+That gap is exactly what enabled an internal contamination incident
+in April 2026: an experimental source tree was staged into the
+official tarball slot, the next "production" build silently used it,
+and the resulting DMG contained patched experimental code presented
+as a clean release.
 
 ## Threat model
 
@@ -192,9 +192,10 @@ flowchart TD
     style Investigate fill:#fff3e0,stroke:#ff9800
 ```
 
-Per [`-report-dont-auto-fix.md`](..//) — the
-script always hard-fails and reports; it never auto-deletes the
-tarball. The decision to delete and re-download is yours.
+The script always hard-fails and reports; it never auto-deletes the
+tarball or attempts a "self-heal" re-download on failure. The
+decision to delete and re-download is yours, after you've understood
+why verification failed.
 
 ## Refreshing the embedded key
 
