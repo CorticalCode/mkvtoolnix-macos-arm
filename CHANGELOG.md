@@ -42,7 +42,7 @@ local replacement and (the stronger guarantee) a hypothetical
 - Local build DMG filenames dropped the redundant `-macos-` segment. This wrapper only builds for macOS; the token added nothing. New pattern: `MKVToolNix-{ver}-{arch}-b{NNN}-{suffix}.dmg`.
 - Release DMGs in `release/` and on GitHub keep `-macos-apple-silicon` / `-macos-intel` for end-user clarity.
 - Existing 23 DMGs in `build/` renamed to new convention; `.sha256` sidecars regenerated (hash values unchanged — SHA256 is a content hash).
-- `build-local.sh`, `tools/build-fork.sh`, and `` §2 updated to match.
+- `build-local.sh` and `tools/build-fork.sh` updated to match.
 
 **Upstream contribution path extended:**
 - Filed PR [#6213](https://codeberg.org/mbunkus/mkvtoolnix/pulls/6213) upstream for issue [#6211](https://codeberg.org/mbunkus/mkvtoolnix/issues/6211) (audio-file browse dialog default directory). First PR-style contribution from `corticalcode`; prior work was filed as issues and implemented by mbunkus.
@@ -56,7 +56,7 @@ local replacement and (the stronger guarantee) a hypothetical
 
 **Repo hygiene:**
 - Added SHA256 checksums for proven cache tarballs in `proven/{arm,intel}/`.
-- `.gitignore` trimmed; strategic patterns (`/`, `/`, `/`, etc.) migrated to per-clone `.git/info/exclude`. Public repo's `.gitignore` is now narrower and project-universal.
+- `.gitignore` trimmed; some patterns migrated to per-clone `.git/info/exclude`. Public repo's `.gitignore` is now narrower and project-universal.
 - Added `.cz.toml` for commitizen commit-message validation.
 
 ---

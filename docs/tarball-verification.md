@@ -2,7 +2,7 @@
 
 Every build verifies the upstream `mkvtoolnix-${VERSION}.tar.xz` source tarball
 against an OpenPGP signature published by the upstream maintainer
-([Moritz Bunkus](https://www.bunkus.org/)) before invoking the build script.
+([Moritz Bunkus](https://www.bunkus.org/), `mbunkus`) before invoking the build script.
 This guide explains what it does, why it exists, and how to operate it.
 
 ## Why this exists
@@ -24,17 +24,28 @@ as a clean release.
 
 ```mermaid
 flowchart LR
-    A["Attacker /<br/>accident"] -->|"replaces tarball<br/>locally"| T["~/opt/source/<br/>mkvtoolnix-X.tar.xz"]
-    A -->|"compromises<br/>download server"| S["mkvtoolnix.download/<br/>sources/"]
-    T --> B["build-local.sh"]
-    S -->|"on first download"| T
-    B --> D["DMG"]
+    Att["Attacker<br/><i>(intent)</i>"]
+    Acc["Accident /<br/>oversight"]
 
-    style A fill:#ffebee,stroke:#c62828
-    style T fill:#fff3e0,stroke:#ff9800
-    style S fill:#fff3e0,stroke:#ff9800
-    style B fill:#e8f5e9,stroke:#4caf50
-    style D fill:#e3f2fd,stroke:#2196f3
+    Tam["Tampered tarball<br/>at ~/opt/source/"]
+    Wrong["Wrong tarball<br/>at ~/opt/source/"]
+
+    B["build-local.sh<br/><i>no verification</i>"]
+    D["DMG<br/><i>(incorrect content)</i>"]
+
+    Att -->|"server compromise<br/>or local malware"| Tam
+    Acc -->|"buggy script,<br/>wrong version,<br/>botched copy"| Wrong
+
+    Tam --> B
+    Wrong --> B
+    B --> D
+
+    style Att fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#000
+    style Acc fill:#fff8e1,stroke:#f9a825,stroke-width:2px,color:#000
+    style Tam fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#000
+    style Wrong fill:#fff8e1,stroke:#f9a825,stroke-width:2px,color:#000
+    style B fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#000
+    style D fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#000
 ```
 
 | Threat | SHA256 from same server | OpenPGP signature |
@@ -44,42 +55,48 @@ flowchart LR
 | `mkvtoolnix.download` server compromised | **Bypassed** — attacker also serves matching SHA | **Caught** — attacker can't forge a valid signature without the private key |
 | Confirms identity of who released it | No | Yes |
 
-OpenPGP gives strictly more protection than SHA256 alone, so we use it.
+OpenPGP gives more robust protection than SHA-256 alone, so we use it.
 
 ## Trust artifacts
 
-Three files in this repo make the verification work:
+Verification depends on a public key and a pinned fingerprint, both checked at build time. A monthly workflow watches the pinned fingerprint for drift, and a fourth file is an audit trail — how the key got into the repo in the first place.
 
 ```mermaid
 flowchart LR
-    K["tools/<br/>mbunkus-pubkey.asc<br/><i>10 KB embedded key</i>"]
-    F["tools/<br/>mbunkus-fingerprint.txt<br/><i>40-hex pinned FP</i>"]
-    R["tools/<br/>README.md<br/><i>provenance docs</i>"]
-    W[".github/workflows/<br/>verify-mbunkus-key.yml<br/><i>monthly drift action</i>"]
+    K["tools/mbunkus-pubkey.asc<br/><i>public key</i>"]
+    F["tools/mbunkus-fingerprint.txt<br/><i>pinned fingerprint</i>"]
+    W["monthly verify-mbunkus-key<br/>workflow"]
 
-    K -.->|"primary FP must match"| F
-    R -.->|"documents both"| K
-    R -.->|"documents both"| F
-    W -.->|"re-checks against<br/>3 sources monthly"| F
+    K -->|"primary FP must match"| F
+    W -->|"cross-checks F monthly<br/>vs 3 external sources"| F
 
-    style K fill:#e8f4fd,stroke:#2196f3
-    style F fill:#fff3e0,stroke:#ff9800
-    style R fill:#f3e5f5,stroke:#9c27b0
-    style W fill:#e8f5e9,stroke:#4caf50
+    style F fill:#fff3e0,stroke:#ff9800,stroke-width:2px,color:#000
+    style K fill:#e8f4fd,stroke:#2196f3,stroke-width:2px,color:#000
+    style W fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#000
 ```
 
-- **`tools/mbunkus-pubkey.asc`** — Moritz Bunkus's full public key,
-  fetched from `https://bunkus.org/gpg-pub-moritzbunkus.txt` on
-  2026-04-25. Public keys are designed for redistribution; this is
-  exactly the use case mbunkus published the key for.
-- **`tools/mbunkus-fingerprint.txt`** — primary key fingerprint
-  (`D9199745B0545F2E8197062B0F92290A445B9007`) pinned in plain text.
-  Build script verifies the embedded `.asc` primary FP matches this
-  before trusting it. Tampering with one without the other shows up
-  as two suspicious diffs in review.
+- **`tools/mbunkus-pubkey.asc`** — the public key GPG uses at build
+  time to verify the tarball signature. Fetched from
+  `https://bunkus.org/gpg-pub-moritzbunkus.txt` on 2026-04-25. Public
+  keys are designed for redistribution; this is exactly the use case
+  mbunkus published the key for.
+- **`tools/mbunkus-fingerprint.txt`** — the pinned fingerprint
+  (`D9199745B0545F2E8197062B0F92290A445B9007`) acting as a tripwire
+  on the public key. The build script verifies the public key's
+  primary fingerprint matches this file before letting GPG use the
+  key. Without this tripwire, the build would trust whatever public
+  key happens to be in the repo.
 - **`.github/workflows/verify-mbunkus-key.yml`** — re-checks the
-  pinned fingerprint against three independent sources monthly.
-  Fails (and emails the maintainer) on any drift.
+  pinned fingerprint monthly against three independent sources:
+  `bunkus.org`, Codeberg (`codeberg.org/mbunkus.gpg`), and
+  `keys.openpgp.org`. Protects against silent drift in the pinned
+  fingerprint itself. Emails the maintainer on any disagreement;
+  never auto-updates.
+- **`tools/README.md`** — records when the public key was fetched,
+  from where, and which channels were cross-verified at that time.
+  Not used at build time; it's the audit trail for how trust was
+  originally established. Read this when refreshing the key (see
+  "Refreshing the embedded key" below).
 
 ## How a build verifies the tarball
 
@@ -88,25 +105,19 @@ sequenceDiagram
     autonumber
     participant U as User
     participant W as build-local.sh
-    participant FS as ~/opt/source/
     participant UP as mkvtoolnix.download
     participant G as gpg (temp keyring)
 
     U->>W: ./build-local.sh release-98.0
-    W->>W: Cross-check pubkey FP vs<br/>pinned fingerprint
-    alt FP mismatch
+    W->>W: Verify embedded pubkey FP<br/>matches pinned fingerprint
+
+    opt FP mismatch
         W-->>U: ERROR — refuse to build
     end
 
-    W->>FS: tarball exists?
-    alt tarball missing
-        W->>UP: GET mkvtoolnix-98.0.tar.xz
-        UP-->>FS: tarball
-    end
-    W->>FS: .sig exists?
-    alt .sig missing
-        W->>UP: GET mkvtoolnix-98.0.tar.xz.sig
-        UP-->>FS: signature
+    opt tarball or .sig missing locally
+        W->>UP: GET tarball + .sig
+        UP-->>W: files
     end
 
     W->>G: import embedded pubkey<br/>(temp keyring, isolated)
@@ -130,35 +141,31 @@ doesn't pollute it.
 ```mermaid
 sequenceDiagram
     autonumber
-    participant CR as Cron (1st of month)
-    participant A as verify-mbunkus-key action
+    participant A as verify-mbunkus-key
     participant B as bunkus.org
     participant C as Codeberg
     participant K as keys.openpgp.org
     participant M as Maintainer
 
-    CR->>A: trigger
+    Note over A: triggered monthly<br/>(cron, 1st of month)
     A->>A: read pinned FP
 
-    par parallel fetch
+    par fetch + extract from each source
         A->>B: GET pub key
-        B-->>A: key bytes
-        A->>A: extract primary FP
+        B-->>A: key bytes (FP extracted locally)
     and
         A->>C: GET pub key
-        C-->>A: key bytes
-        A->>A: extract primary FP
+        C-->>A: key bytes (FP extracted locally)
     and
         A->>K: GET pub key by FP
-        K-->>A: key bytes
-        A->>A: extract primary FP
+        K-->>A: key bytes (FP extracted locally)
     end
 
-    alt all 3 sources reachable AND match pinned
+    alt all 3 sources match pinned
         A->>M: pass (silent)
     else any source disagrees
         A->>M: fail + email notification
-        Note over M: human reviews,<br/>opens PR if drift is real
+        Note over M: human reviews,<br/>PR if drift is real
     end
 ```
 
@@ -177,7 +184,11 @@ flowchart TD
     Q1 -->|Yes| Fix1[rm ~/opt/source/mkvtoolnix-X.tar.xz<br/>rm ~/opt/source/mkvtoolnix-X.tar.xz.sig<br/>rerun build]
     Q1 -->|No| Q2{Has the monthly<br/>workflow alerted<br/>about key drift?}
 
-    Q2 -->|Yes| Refresh[Refresh tools/mbunkus-pubkey.asc<br/>per tools/README.md]
+    Q2 -->|Yes| DriftCheck[Drift means the trust chain<br/>has changed. Before refreshing,<br/>verify the new fingerprint via<br/>independent channels — upstream<br/>announcement, multiple sources.]
+    DriftCheck --> Q2a{Is the new fingerprint<br/>confirmed legitimate<br/>across multiple<br/>independent channels?}
+    Q2a -->|Yes — legitimate rotation| Refresh[Refresh tools/mbunkus-pubkey.asc<br/>per tools/README.md]
+    Q2a -->|No / unsure| SecurityEvent[STOP. Treat as security event.<br/>Possible tampering of upstream<br/>channels, pinned fingerprint,<br/>or cross-verification sources.<br/>Do not refresh until investigated.]
+
     Q2 -->|No| Q3{Can you reach<br/>mkvtoolnix.download<br/>at all?}
 
     Q3 -->|No| Wait[Wait — server may be down.<br/>Check status, retry later]
@@ -187,9 +198,11 @@ flowchart TD
     Refresh --> Done
     Manual --> Investigate[Investigate root cause<br/>before deleting anything]
 
-    style Start fill:#ffebee,stroke:#c62828
-    style Done fill:#e8f5e9,stroke:#4caf50
-    style Investigate fill:#fff3e0,stroke:#ff9800
+    style Start fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#000
+    style Done fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#000
+    style DriftCheck fill:#fff3e0,stroke:#ff9800,stroke-width:2px,color:#000
+    style Investigate fill:#fff3e0,stroke:#ff9800,stroke-width:2px,color:#000
+    style SecurityEvent fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#000
 ```
 
 The script always hard-fails and reports; it never auto-deletes the
@@ -246,27 +259,26 @@ relevant here).
 
 ```mermaid
 flowchart LR
-    K1["bunkus.org<br/>pub key"]
-    K2["Codeberg<br/>pub key"]
-    K3["keys.openpgp.org<br/>pub key by FP"]
-    K4["keyserver.ubuntu.com<br/>pub key"]
+    Sources["<div style='text-align:left'>4 independent channels (initial fetch)<br/>______________<br/>1. bunkus.org<br/>2. Codeberg<br/>3. keys.openpgp.org<br/>4. keyserver.ubuntu.com</div>"]
+    FP["pinned FP<br/>D9199745...445B9007"]
+    EK["embedded pubkey<br/>tools/mbunkus-pubkey.asc"]
+    TG["gpg verify<br/>tarball + .sig"]
+    OK["build proceeds"]
 
-    K1 -->|FP| FP["pinned FP<br/>D9199745...445B9007"]
-    K2 -->|FP| FP
-    K3 -->|FP| FP
-    K4 -->|FP| FP
+    Sources -->|"FP cross-checked<br/>(consensus)"| FP
+    FP -->|"matches"| EK
+    EK -->|"imported to<br/>temp keyring"| TG
+    TG -->|"exit 0"| OK
 
-    FP -->|matches embedded key| EK["tools/<br/>mbunkus-pubkey.asc"]
-    EK -->|imported to temp keyring| TG["gpg verify<br/>tarball + .sig"]
-    TG -->|exit 0| OK["build proceeds"]
-
-    style FP fill:#fff3e0,stroke:#ff9800
-    style EK fill:#e8f4fd,stroke:#2196f3
-    style OK fill:#e8f5e9,stroke:#4caf50
+    style FP fill:#fff3e0,stroke:#ff9800,stroke-width:2px,color:#000
+    style EK fill:#e8f4fd,stroke:#2196f3,stroke-width:2px,color:#000
+    style OK fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#000
 ```
 
-Four independent channels published the same primary fingerprint on
-2026-04-25. The pinned FP is the consensus value. The embedded key
-must match the pinned FP. The tarball must verify against the
-embedded key's signing subkey. Any link in the chain breaking
-hard-fails the build.
+Four independent channels published the same primary fingerprint when
+the key was first added (2026-04-25). The pinned FP is the consensus
+value from that initial check. Three of those four channels are
+re-checked monthly by the verify-mbunkus-key workflow to detect drift.
+The embedded key must match the pinned FP. The tarball must verify
+against the embedded key's signing subkey. Any link in the chain
+breaking hard-fails the build.

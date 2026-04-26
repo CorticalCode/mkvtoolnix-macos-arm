@@ -27,9 +27,8 @@ flowchart TD
     E --> G["DMG ready"]
     F --> G
 
-    style A fill:#e8f4fd,stroke:#2196f3
-    style C fill:#e8f5e9,stroke:#4caf50
-    style G fill:#fff3e0,stroke:#ff9800
+    style A fill:#e8f4fd,stroke:#2196f3,stroke-width:2px,color:#000
+    style G fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#000
 ```
 
 ## Build Mode Decision Tree
@@ -69,37 +68,54 @@ flowchart TD
     POST["Package DMG"] --> VERIFY["Post-build verification"]
     VERIFY --> DONE(("Done<br/><i>DMG ready</i>"))
 
-    style RC5 fill:#e8f5e9,stroke:#4caf50
-    style P2 fill:#ffebee,stroke:#f44336
-    style P7 fill:#e8f5e9,stroke:#4caf50
-    style DONE fill:#fff3e0,stroke:#ff9800
+    style RC5 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#000
+    style P2 fill:#ffebee,stroke:#f44336,stroke-width:2px,color:#000
+    style P7 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#000
+    style DONE fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#000
 ```
 
 ## Dependency Lifecycle
 
-How dependencies flow between Git LFS, the local cache, and the build system.
+How dependencies flow between Git LFS, the local cache, and the build system. There are two halves: a **consumer path** that everyone uses, and a **promotion path** that's maintainer-only.
+
+### Consumer path (everyone)
 
 ```mermaid
 flowchart LR
-    LFS["<b>Git LFS</b><br/><i>proven/{arch}/</i><br/>Archival storage"]
-    LC["<b>Local Cache</b><br/><i>~/opt/proven/{arch}/</i><br/>Build-time restore"]
-    PKG["<b>Packages</b><br/><i>~/opt/packages/</i><br/>Build output"]
+    LFS["<b>Git LFS</b><br/><i>proven/{arch}/</i><br/>archival storage"]
+    LC["<b>Local Cache</b><br/><i>~/opt/proven/{arch}/</i>"]
+    BUILD(("Build"))
+    PKG["<b>DMG</b><br/><i>~/opt/packages/</i>"]
+    FULL["<b>--full</b><br/><i>(skip cache,<br/>build all from source)</i>"]
 
-    LFS -- "--restore-cache" --> LC
-    LC -- "auto mode<br/>restore" --> BUILD(("Build"))
-    BUILD -- "produces" --> PKG
-    PKG -- "--promote<br/>(maintainer)" --> LFS
-
-    FULL["--full"] -. "bypasses" .-> LC
+    LFS -->|"--restore-cache"| LC
+    LC -->|"auto-restore"| BUILD
     FULL --> BUILD
+    BUILD -->|"produces"| PKG
 
-    style LFS fill:#e8f4fd,stroke:#2196f3
-    style LC fill:#e8f5e9,stroke:#4caf50
-    style PKG fill:#fff3e0,stroke:#ff9800
-    style BUILD fill:#f3e5f5,stroke:#9c27b0
+    style LFS fill:#e8f4fd,stroke:#2196f3,stroke-width:2px,color:#000
+    style PKG fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#000
+    style BUILD fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px,color:#000
 ```
 
-> **Key insight:** `--restore-cache` and `--promote` are two ends of the same loop. Dependencies are pulled from LFS into the local cache, used during builds, and (for maintainers) promoted back to LFS after verification. The `--full` flag bypasses the cache entirely, building everything from source.
+Most users only ever do this: pull dependencies from LFS into the local cache (or skip the cache with `--full` and build everything from source), run a build, get a DMG.
+
+### Promotion path (maintainer only)
+
+```mermaid
+flowchart LR
+    PKG["<b>Verified Packages</b><br/><i>~/opt/packages/</i><br/>(after a clean build)"]
+    LFS["<b>Git LFS</b><br/><i>proven/{arch}/</i><br/>archived for the next consumer"]
+
+    PKG -->|"--promote<br/>(maintainer only)"| LFS
+
+    style PKG fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#000
+    style LFS fill:#e8f4fd,stroke:#2196f3,stroke-width:2px,color:#000
+```
+
+After a verified build, the maintainer archives the new packages back to LFS so the next person to run `--restore-cache` picks them up. This is a separate operation, not part of the build itself.
+
+> **The two halves form a loop in time, not space:** today's `--promote` becomes tomorrow's `--restore-cache` for the next person to clone fresh.
 
 ## Existing Clones (Reclaiming Disk Space)
 
@@ -160,10 +176,10 @@ flowchart TD
     C --> G["Repo ~1 MB"]
     D --> G
 
-    style B fill:#e8f5e9,stroke:#4caf50
-    style C fill:#e8f4fd,stroke:#2196f3
-    style D fill:#fff3e0,stroke:#ff9800
-    style E fill:#f5f5f5,stroke:#9e9e9e
+    style B fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#000
+    style C fill:#e8f4fd,stroke:#2196f3,stroke-width:2px,color:#000
+    style D fill:#fff3e0,stroke:#ff9800,stroke-width:2px,color:#000
+    style E fill:#f5f5f5,stroke:#9e9e9e,stroke-width:2px,color:#000
 ```
 
 ## Build Numbers
