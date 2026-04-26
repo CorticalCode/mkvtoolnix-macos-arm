@@ -589,6 +589,59 @@ if [[ "${SPECS_QT_FILE}" != "${EXPECTED_QT_DIR}.tar.xz" ]]; then
 fi
 echo "==> Verified: QTVER=${QTVER} matches specs.sh (${SPECS_QT_FILE})"
 
+# Verify upstream mkvtoolnix tarball signature before letting build.sh use it.
+# Upstream build.sh does not checksum or signature-verify the source tarball
+# (build_package /path mode bypasses retrieve_file). This closes the gap that
+# allowed the 2026-04-20 contamination incident.
+PUBKEY="${SCRIPT_DIR}/tools/mbunkus-pubkey.asc"
+PINNED_FP_FILE="${SCRIPT_DIR}/tools/mbunkus-fingerprint.txt"
+SOURCE_DIR="${SRCDIR:-${HOME}/opt/source}"
+TARBALL="${SOURCE_DIR}/mkvtoolnix-${VERSION}.tar.xz"
+SIGFILE="${TARBALL}.sig"
+TARBALL_URL="https://mkvtoolnix.download/sources/mkvtoolnix-${VERSION}.tar.xz"
+
+if [[ ! -f "${PUBKEY}" ]] || [[ ! -f "${PINNED_FP_FILE}" ]]; then
+  echo "ERROR: missing GPG trust artifacts in tools/. See tools/README.md."
+  exit 1
+fi
+
+PINNED_FP=$(tr -d '[:space:]' < "${PINNED_FP_FILE}")
+EMBEDDED_FP=$(gpg --show-keys --with-colons --with-fingerprint "${PUBKEY}" 2>/dev/null \
+  | awk -F: '$1=="fpr" {print $10; exit}')
+if [[ "${EMBEDDED_FP}" != "${PINNED_FP}" ]]; then
+  echo "ERROR: embedded mbunkus key fingerprint does not match pinned text file."
+  echo "  embedded (${PUBKEY}): ${EMBEDDED_FP}"
+  echo "  pinned   (${PINNED_FP_FILE}): ${PINNED_FP}"
+  echo "  One of those was tampered with — refuse to build."
+  exit 1
+fi
+
+mkdir -p "${SOURCE_DIR}"
+
+if [[ ! -f "${TARBALL}" ]]; then
+  echo "==> Downloading mkvtoolnix-${VERSION}.tar.xz..."
+  curl -fsSL "${TARBALL_URL}" -o "${TARBALL}"
+fi
+
+if [[ ! -f "${SIGFILE}" ]]; then
+  echo "==> Downloading mkvtoolnix-${VERSION}.tar.xz.sig..."
+  curl -fsSL "${TARBALL_URL}.sig" -o "${SIGFILE}"
+fi
+
+GPG_TEMP_DIR=$(mktemp -d)
+gpg --homedir "${GPG_TEMP_DIR}" --batch --quiet --import "${PUBKEY}" 2>/dev/null
+if ! gpg --homedir "${GPG_TEMP_DIR}" --batch --quiet --verify "${SIGFILE}" "${TARBALL}" 2>/dev/null; then
+  command rm -rf "${GPG_TEMP_DIR}"
+  echo "ERROR: GPG signature verification FAILED for ${TARBALL}"
+  echo "  Either the tarball is modified/corrupted, the .sig is stale, or"
+  echo "  upstream rotated the signing subkey (run the verify-mbunkus-key"
+  echo "  GitHub Action / refresh tools/mbunkus-pubkey.asc per tools/README.md)."
+  echo "  To force re-download: rm '${TARBALL}' '${SIGFILE}' && rerun this script"
+  exit 1
+fi
+command rm -rf "${GPG_TEMP_DIR}"
+echo "==> Verified: tarball signature OK (mbunkus key ${PINNED_FP:0:16}...)"
+
 # Derive expected package names from specs.sh (single source of truth for versions)
 # Produces names like: autoconf-2.69, boost_1_88_0, qt-everywhere-src-6.10.2, etc.
 EXPECTED_SPEC_VARS=(
