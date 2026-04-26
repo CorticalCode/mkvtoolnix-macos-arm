@@ -13,8 +13,14 @@ contamination (the 2026-04-20 incident) and a hypothetical
 ### Files
 
 - **`mbunkus-pubkey.asc`** — Moritz Bunkus's public key, fetched from
-  `https://keys.openpgp.org/vks/v1/by-fingerprint/D9199745B0545F2E8197062B0F92290A445B9007`
-  on 2026-04-25. Minimal form (no third-party signatures). 4564 bytes.
+  the canonical source `https://bunkus.org/gpg-pub-moritzbunkus.txt`
+  on 2026-04-25. Full key with all six user IDs and third-party
+  signatures. 10057 bytes.
+
+  Note: the keys.openpgp.org "minimal form" of this key has all UIDs
+  stripped (because email confirmation hasn't been done by the key
+  owner for that service). gpg refuses to verify against a UID-less
+  key, so the bunkus.org form is required.
 
   Public keys are designed for redistribution; this is exactly the use
   case mbunkus published the key for.
