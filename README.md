@@ -2,81 +2,79 @@
 
 Unofficial macOS builds of [MKVToolNix GUI](https://mkvtoolnix.download/) for Apple Silicon and Intel.
 
-The MKVToolNix developer no longer provides macOS binaries. The CLI tools (`mkvmerge`, `mkvextract`, `mkvpropedit`, `mkvinfo`) are available via `brew install mkvtoolnix`, but the GUI is not. This repo builds the full MKVToolNix GUI application from the official source.
+The MKVToolNix developer no longer provides macOS binaries as of v98.0. The CLI tools are available via `brew install mkvtoolnix`, but the GUI is not. This repo builds the full GUI from upstream source.
 
-**These are personal builds shared as-is.** No warranty, no guaranteed support, no SLA. If a build works for you, great. If it doesn't, the build scripts and patches are here so you can debug and fix it yourself. Issues and contributions are welcome but may not receive a timely response. For MKVToolNix bugs unrelated to this build, report them [upstream](https://codeberg.org/mbunkus/mkvtoolnix/issues).
+These are personal builds shared as-is. No warranty, no SLA. Build scripts and patches are in this repo if you want to debug or build yourself.
 
 ## Download
 
-| Date | Release | MKVToolNix | Apple Silicon | Intel |
-|------|---------|:----------:|:-------------:|:-----:|
-| 2026-04-15 | [v98.0-b2026.04.3](../../releases/tag/v98.0-b2026.04.3) | 98.0 | [DMG (34 MB)](../../releases/download/v98.0-b2026.04.3/MKVToolNix-98.0-macos-apple-silicon.dmg) | [DMG (36 MB)](../../releases/download/v98.0-b2026.04.3/MKVToolNix-98.0-macos-intel.dmg) |
+Latest release: **[Releases page →](https://github.com/CorticalCode/mkvtoolnix-gui-macos/releases/latest)**
 
-All releases on the [Releases page](../../releases).
+| Architecture | File pattern |
+|---|---|
+| Apple Silicon (M1/M2/M3/M4) | `MKVToolNix-{version}-macos-apple-silicon.dmg` |
+| Intel | `MKVToolNix-{version}-macos-intel.dmg` |
 
-These are separate architecture-specific builds, not a universal binary. Apple menu > About This Mac to check: "Apple M_" = Apple Silicon, "Intel Core" = Intel. Installing the wrong architecture will produce an error on launch.
+Not sure which? Apple menu → About This Mac. "Apple M_" = Apple Silicon, "Intel Core" = Intel.
 
-**Note:** The DMGs are ad-hoc signed but not notarized. On macOS Sequoia and newer, you may need to allow the app in System Settings > Privacy & Security, or run:
+Each DMG ships with a matching `.sha256` file:
+
 ```
-xattr -cr /Applications/MKVToolNix*.app
-```
-
-**Verify integrity:** Each DMG ships with a matching `.sha256` file in the release assets. Download both, then:
-```sh
 shasum -a 256 -c MKVToolNix-98.0-macos-apple-silicon.dmg.sha256
 ```
 
-## Build locally
+CI builds also include a build provenance attestation (verifiable with `gh attestation verify`).
 
-Requirements: Xcode CLI tools, ~10 GB disk space, 1-3 hours (first build; subsequent builds reuse cached dependencies and take ~15 minutes).
+## Trust & install
+
+These DMGs are ad-hoc signed, not Apple-notarized. macOS will block the first launch — this is Gatekeeper working correctly. To override:
+
+- **Either** right-click the app → Open, then confirm in the dialog (on macOS Sequoia and newer, may push you to System Settings → Privacy & Security → Open Anyway), **or**
+- Run `xattr -cr /Applications/MKVToolNix*.app` to clear the quarantine attribute, then launch normally
+
+This is the same trust model that applied to mbunkus's official DMGs before April 2026, and the same model MacPorts uses for its `+qtgui` variant. The DMG isn't notarized because notarizing would put my name on a chain of trust I can't honestly back — I'm not the upstream maintainer, I haven't audited Qt or boost or the other dependencies, and I'm in no position to vouch for them the way Developer ID signing implies.
+
+What the build does verify: mbunkus's GPG signature on the MKVToolNix source tarball, his signed git tag on codeberg, SHA256 hashes on every dependency tarball, plus post-build checks for architecture, library leaks, and size. **[Full trust model →](docs/trust-model.md)**
+
+If this trust model isn't right for you, build from source (next section) or use MacPorts (`sudo port install mkvtoolnix +qtgui`).
+
+## Build from source
+
+Requirements: Xcode CLI tools, ~10 GB disk space, 1–3 hours first build.
 
 ```sh
-git clone https://github.com/corticalcode/mkvtoolnix-gui-macos.git
+git clone https://github.com/CorticalCode/mkvtoolnix-gui-macos.git
 cd mkvtoolnix-gui-macos
-
-# Optional: pull pre-built dependencies to skip the 1-3 hour dep build
-./build-local.sh --restore-cache
-
+./build-local.sh --restore-cache    # optional, pulls pre-built deps from LFS
 ./build-local.sh release-98.0
 ```
 
-The DMG will be at `~/tmp/compile/MKVToolNix-98.0.dmg`.
-
-Use `--restore-cache` to pull pre-built dependencies from Git LFS (~15 min build). Omit it to build everything from source (~1-3 hours). Use `--full` to force a complete rebuild. See [docs/proven-cache.md](docs/proven-cache.md) for details.
-
-Every build verifies the upstream source tarball against Moritz Bunkus's published OpenPGP signature before running — see [docs/tarball-verification.md](docs/tarball-verification.md) for the threat model, sequence diagrams, and what to do if verification fails.
-
-The repo tracks `.build-counter-{arm,intel}` so build numbering stays in sync across your machines. See [docs/build-workflow.md#build-numbers](docs/build-workflow.md#build-numbers) if you want to reset them on a fresh clone.
-
-> **Cloned before 2026-04-15?** Your repo may still contain ~534 MB of dependency archives. See [docs/lfs-migration.md](docs/lfs-migration.md) for a one-time cleanup.
+The DMG will be at `~/tmp/compile/MKVToolNix-98.0.dmg`. See [docs/proven-cache.md](docs/proven-cache.md) for the cache architecture and `--full` for forced full rebuild.
 
 ## What this repo contains
 
-- `build-local.sh` -- clones upstream source, applies patches, runs the build
-- `config/config.local.sh` -- config overlay (ad-hoc signing, optimization flags)
-- `patches/` -- fixes for the upstream build scripts
-- `tools/` -- OpenPGP trust artifacts for tarball verification + helper scripts
-- `.githooks/` -- repo git hooks (activate with `git config core.hooksPath .githooks`)
-- `.github/workflows/` -- CI: builds + publishes DMGs (`build.yml`), monthly key drift check (`verify-mbunkus-key.yml`)
-
-See [docs/contributing.md](docs/contributing.md) for hook setup and contribution rules.
+- `build-local.sh` — clones upstream, applies patches, runs the build, verifies
+- `config/config.local.sh` — config overlay (ad-hoc signing, optimization flags)
+- `patches/` — fixes for the upstream build scripts ([details](PATCHES.md))
+- `tools/` — pinned mbunkus public key and fingerprint for tarball + tag verification, plus `check-upstream-tag-signing.sh` for periodic validation that upstream is still GPG-signing release tags
+- `.github/workflows/build.yml` — CI builds and publishes Apple Silicon DMGs
+- `.github/workflows/verify-mbunkus-key.yml` — monthly cross-check of the pinned key against three independent sources
 
 ## Credits
 
-All credit to [Moritz Bunkus](https://www.bunkus.org/blog/) and the MKVToolNix contributors for building and maintaining this incredible tool for over 20 years. Moritz provided macOS builds for many years despite not owning a Mac himself -- thank you for that and for all the work that goes into MKVToolNix.
+All credit to [Moritz Bunkus](https://www.bunkus.org/blog/) and the MKVToolNix contributors for building and maintaining this incredible tool for over 20 years. Moritz provided macOS builds for many years despite not owning a Mac himself — thank you for that and for all the work that goes into MKVToolNix.
 
 This repo builds on the work of the macOS build community on the [MKVToolNix forum](https://help.mkvtoolnix.download/):
 
-- **[Miklos Juhasz](https://github.com/mjuhasz)** -- contributed macOS patches upstream (dock progress bar, dark/light mode fix in v98.0) and documented key build fixes including the missing include directory and Qt6 build adjustments
-- **Ryu67** -- provided community ARM builds (v92 through v98.0) that demonstrated feasibility and kept users going while official builds were unavailable
-- **umzyi99** -- documented Qt version-specific fixes and dark mode icon support
-- **SoCuul** -- demonstrated signed and notarized builds on Apple Silicon
-- **Touchstone64** -- tested v98.0 on macOS 26 and documented dependency URL and Qt compatibility issues
+- **[Miklos Juhasz](https://github.com/mjuhasz)** — contributed macOS patches upstream and documented key build fixes
+- **Ryu67** — provided community ARM builds (v92 through v98.0)
+- **umzyi99** — documented Qt version-specific fixes and dark mode icon support
+- **SoCuul** — demonstrated signed and notarized builds on Apple Silicon
+- **Touchstone64** — tested v98.0 on macOS 26 and documented compatibility issues
 
 The build patches in this repo were informed by solutions shared across the [Building MKVToolNix with GUI on a Mac](https://help.mkvtoolnix.download/t/building-mkvtoolnix-with-gui-on-a-mac/1361) and [Apple Silicon / Retirement of Rosetta 2](https://help.mkvtoolnix.download/t/apple-silicon-retirement-of-rosetta-2/1371) forum threads.
 
 If you find MKVToolNix useful, consider supporting the project upstream.
 
-Source: https://codeberg.org/mbunkus/mkvtoolnix
-
+Source: <https://codeberg.org/mbunkus/mkvtoolnix>
 License: GPL v2

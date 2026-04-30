@@ -100,6 +100,26 @@ function is_lfs_pointer_file {
   LC_ALL=C command dd if="${file}" bs=64 count=1 2>/dev/null | command grep -q "^version https://git-lfs\\.github\\.com/spec/v1$"
 }
 
+function verify_pkg_sha256 {
+  # Fail-open if no sidecar exists (legacy cache); fail-closed on mismatch.
+  local pkg_file="$1"
+  local sha_file="${pkg_file}.sha256"
+
+  if [[ ! -f "${sha_file}" ]]; then
+    echo "    WARNING: no .sha256 sidecar for ${pkg_file:t} — accepting (legacy cache)"
+    return 0
+  fi
+
+  if (cd "${pkg_file:h}" && shasum -a 256 -c "${sha_file:t}" >/dev/null 2>&1); then
+    return 0
+  else
+    echo "    ERROR: SHA256 mismatch on ${pkg_file:t}"
+    echo "      Expected (from ${sha_file:t}): $(cat "${sha_file}")"
+    echo "      Actual:                       $(shasum -a 256 "${pkg_file}")"
+    return 1
+  fi
+}
+
 function cleanup_repo_lfs {
   local cleaned=false
   local -a arch_dirs=()
@@ -253,15 +273,18 @@ function restore_from_proven {
       pkg_file="${proven_dir}/${pkg}.tar.gz"
       echo "    Restoring ${pkg}..."
     fi
+    verify_pkg_sha256 "${pkg_file}" || return 1
     (cd "${TARGET}" && tar xzf "${pkg_file}")
     restored=$((restored + 1))
   done
 
   if [[ -f "${experimental_dir}/docbook-xsl.tar.gz" ]]; then
     echo "    Restoring docbook-xsl (experimental)..."
+    verify_pkg_sha256 "${experimental_dir}/docbook-xsl.tar.gz" || return 1
     (cd "${TARGET}" && tar xzf "${experimental_dir}/docbook-xsl.tar.gz")
   else
     echo "    Restoring docbook-xsl..."
+    verify_pkg_sha256 "${proven_dir}/docbook-xsl.tar.gz" || return 1
     (cd "${TARGET}" && tar xzf "${proven_dir}/docbook-xsl.tar.gz")
   fi
   restored=$((restored + 1))
@@ -533,6 +556,52 @@ fi
 cd "${CLONE_DIR}"
 git checkout -- .
 git clean -fd -q  # Remove untracked files from prior runs (qt-patches, config overlay, etc.)
+
+# Verify upstream tag signature against pinned mbunkus key.
+# Roots specs.sh + all dependency hashes in mbunkus's key (without this,
+# specs.sh integrity depends on codeberg integrity alone).
+echo "==> Verifying upstream tag signature..."
+
+if [[ ! -f "${SCRIPT_DIR}/tools/mbunkus-pubkey.asc" ]]; then
+  echo "ERROR: mbunkus pubkey not found at expected location" >&2
+  exit 1
+fi
+
+GPG_TAG_DIR=$(mktemp -d)
+gpg --homedir "${GPG_TAG_DIR}" --batch --quiet \
+  --import "${SCRIPT_DIR}/tools/mbunkus-pubkey.asc" 2>/dev/null
+
+# Set GNUPGHOME directly — more reliable than git's gpg.programOptions
+# across the macOS git versions we support.
+verify_output=$(GNUPGHOME="${GPG_TAG_DIR}" \
+  git -C "${CLONE_DIR}" verify-tag --raw "${TAG}" 2>&1 || true)
+
+if ! echo "${verify_output}" | grep -q "GOODSIG"; then
+  command rm -rf "${GPG_TAG_DIR}"
+  echo "ERROR: Tag signature verification FAILED for ${TAG}" >&2
+  echo "  The codeberg tag is not signed by the pinned mbunkus key." >&2
+  echo "  Possible causes:" >&2
+  echo "    - Codeberg compromise (highest concern)" >&2
+  echo "    - Tag is unsigned (upstream policy change?)" >&2
+  echo "    - Upstream rotated keys (run verify-mbunkus-key workflow)" >&2
+  echo "" >&2
+  echo "  --- gpg output ---" >&2
+  echo "${verify_output}" | sed 's/^/  /' >&2
+  exit 1
+fi
+
+expected_fp=$(tr -d '[:space:]' < "${SCRIPT_DIR}/tools/mbunkus-fingerprint.txt")
+signing_fp=$(echo "${verify_output}" | awk '/VALIDSIG/ {print $12; exit}')
+if [[ -n "${signing_fp}" ]] && [[ "${signing_fp}" != "${expected_fp}" ]]; then
+  command rm -rf "${GPG_TAG_DIR}"
+  echo "ERROR: Tag signed by unexpected key" >&2
+  echo "  Expected: ${expected_fp}" >&2
+  echo "  Got:      ${signing_fp}" >&2
+  exit 1
+fi
+
+command rm -rf "${GPG_TAG_DIR}"
+echo "==> Verified: tag ${TAG} signed by mbunkus key ${expected_fp}"
 
 # Copy our config overlay (after clean, so it doesn't get removed)
 echo "==> Applying config overlay..."

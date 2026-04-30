@@ -19,6 +19,8 @@ on:
 permissions:
   contents: write
   issues: write
+  id-token: write       # required for attest-build-provenance
+  attestations: write   # required for attest-build-provenance
 
 jobs:
   check-release:
@@ -77,8 +79,9 @@ jobs:
           path: |
             ~/opt/packages
             ~/opt/source
-          key: deps-${{ hashFiles('patches/*.patch') }}
+          key: deps-${{ needs.check-release.outputs.version }}-${{ hashFiles('patches/*.patch', 'config/config.local.sh') }}
           restore-keys: |
+            deps-${{ needs.check-release.outputs.version }}-
             deps-
 
       # Layer 2: Git LFS proven cache (if Actions cache missed)
@@ -113,6 +116,11 @@ jobs:
           mv ~/tmp/compile/MKVToolNix-${VERSION}.dmg \
              ~/tmp/compile/MKVToolNix-${VERSION}-macos-apple-silicon.dmg
 
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32  # v4.1.0
+        with:
+          subject-path: ~/tmp/compile/MKVToolNix-${{ env.VERSION }}-macos-apple-silicon.dmg
+
       - name: Determine CalVer tag
         id: calver
         env:
@@ -140,7 +148,7 @@ jobs:
             --notes "$(cat <<NOTES
           Unofficial macOS build of [MKVToolNix ${VERSION}](https://mkvtoolnix.download/).
 
-          ## Downloads
+          ## Download
 
           | Architecture | File |
           |-------------|------|
@@ -148,22 +156,28 @@ jobs:
 
           Not sure which? Apple menu > About This Mac. "Apple M_" = Apple Silicon, "Intel Core" = Intel.
 
-          ## Build Details
+          ## Before installing
+
+          These DMGs are ad-hoc signed, not Apple-notarized. macOS will block first launch.
+          **Read [Trust & install](https://github.com/${{ github.repository }}#trust--install) in the README before downloading** — it's short and explains the trust model and how to override Gatekeeper.
+
+          ## Verify
+
+          \`\`\`
+          shasum -a 256 -c MKVToolNix-${VERSION}-macos-apple-silicon.dmg.sha256
+          gh attestation verify MKVToolNix-${VERSION}-macos-apple-silicon.dmg --owner ${{ github.repository_owner }}
+          \`\`\`
+
+          The first checks integrity. The second cryptographically verifies this DMG was built by this repo's workflow from a specific commit.
+
+          ## Build details
 
           - **Upstream:** MKVToolNix ${VERSION} (\`${TAG}\`)
           - **Target:** macOS 13+
-
-          **Automated build.** This release was built and published by CI without manual testing. Post-build verification (Qt version, architecture, duplicate dylibs, Homebrew library leak detection, app size) passed automatically. If you encounter issues, please [report them](https://github.com/${{ github.repository }}/issues).
-
-          ## Installation
-
-          **Not signed or notarized.** To open: right-click the app > Open, or run:
-          \`\`\`
-          xattr -cr /Applications/MKVToolNix*.app
-          \`\`\`
+          - **Automated build.** Built and published by CI without manual testing. Post-build verification (Qt version, architecture, duplicate dylibs, Homebrew library leak detection, app size) passed automatically. If you encounter issues, please [report them](https://github.com/${{ github.repository }}/issues).
 
           [Build patches](https://github.com/${{ github.repository }}/blob/main/PATCHES.md) |
-          [Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) |
+          [Trust model](https://github.com/${{ github.repository }}/blob/main/docs/trust-model.md) |
           [Source](https://codeberg.org/mbunkus/mkvtoolnix/src/tag/${TAG})
           NOTES
           )" \
