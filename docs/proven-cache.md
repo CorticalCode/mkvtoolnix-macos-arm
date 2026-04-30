@@ -7,7 +7,7 @@ The build system caches compiled dependencies so that subsequent builds only nee
 When you run `./build-local.sh release-98.0`:
 
 1. The workspace (`~/opt/`) is wiped clean (except the cache and source tarballs)
-2. Compiled dependencies are restored from `~/opt/proven/{arch}/`
+2. Compiled dependencies are restored from `~/opt/proven/{arch}/`. Each restored package is **SHA256-verified against its `.sha256` sidecar** before being trusted; mismatches abort the build (see [trust-model.md §6](trust-model.md) for context).
 3. If all 15 dependencies are found, only MKVToolNix is built from source
 4. If any are missing, a full build from source runs automatically
 

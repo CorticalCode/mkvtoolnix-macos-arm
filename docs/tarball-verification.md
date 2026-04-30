@@ -5,6 +5,8 @@ against an OpenPGP signature published by the upstream maintainer
 ([Moritz Bunkus](https://www.bunkus.org/), `mbunkus`) before invoking the build script.
 This guide explains what it does, why it exists, and how to operate it.
 
+> **Scope:** this document is a focused deep-dive on **tarball** signature verification. For the full trust chain (tarball + tag + cache restore + build attestation), see [trust-model.md](trust-model.md).
+
 ## Why this exists
 
 Upstream's `packaging/macos/build.sh` does **not** checksum or verify the

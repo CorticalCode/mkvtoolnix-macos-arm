@@ -1,5 +1,38 @@
 # Changelog
 
+## Trust model hardening + README restructure (2026-04-29)
+
+**Supply-chain hardening — second layer.** Builds on the 2026-04-25
+tarball-signature work by extending verification across the full chain
+from upstream tag to release artifact.
+
+- `build-local.sh` now verifies the upstream **release tag's GPG
+  signature** against the pinned mbunkus key before any work, and
+  **SHA256-verifies each package** restored from the proven cache.
+- `.github/workflows/build.yml` gains a versioned cache key (busts on
+  version, patches, or config-overlay change) and a **GitHub
+  build-provenance attestation** step that runs on tag-push releases.
+  CI-built (Apple Silicon) DMGs published from now forward will have
+  attestations verifiable with `gh attestation verify`.
+- README restructured: download-first, with a single **Trust & install**
+  section. Per-release table with direct download links retained.
+- New `docs/trust-model.md` — full trust chain, threat model,
+  verification commands, and a reproduce-yourself off-ramp for users
+  who don't want to trust this repo.
+- New `tools/check-upstream-tag-signing.sh` — precondition probe that
+  verifies recent upstream tags are still signed by the pinned key.
+  Safe to run anytime.
+
+**Why:** before this, `specs.sh` and the dependency hashes inside it
+were rooted in Codeberg integrity alone — a Codeberg compromise would
+have been undetectable by the build system. Pinning to mbunkus's key
+extends trust back to upstream identity. Build-provenance attestation
+extends it forward to the published artifact (CI path only;
+locally-built artifacts inherit the upstream half but not the
+attestation).
+
+---
+
 ## OpenPGP verification of upstream tarball (2026-04-25)
 
 **Supply-chain hardening:** every build now verifies the upstream

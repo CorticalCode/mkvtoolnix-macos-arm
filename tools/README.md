@@ -2,13 +2,23 @@
 
 Helper scripts and trust artifacts for the wrapper build pipeline.
 
-## GPG verification of upstream tarballs
+## GPG verification of upstream artifacts
 
-`build-local.sh` verifies the upstream `mkvtoolnix-${MTX_VER}.tar.xz` source
-tarball against an OpenPGP signature published by the upstream maintainer
-before invoking the build. This catches both accidental local
-contamination (the 2026-04-20 incident) and a hypothetical
-`mkvtoolnix.download` server compromise.
+`build-local.sh` uses the pinned mbunkus key for two checks before running
+the build:
+
+1. **Tag signature** — `git verify-tag` on the upstream release tag (closes
+   the gap where `specs.sh` and the dependency hashes inside it depended on
+   Codeberg integrity alone).
+2. **Tarball signature** — `gpg --verify` on
+   `mkvtoolnix-${MTX_VER}.tar.xz` (catches both accidental local
+   contamination — the 2026-04-20 incident — and a hypothetical
+   `mkvtoolnix.download` server compromise).
+
+Both checks use the same pinned key. See
+[`docs/trust-model.md`](../docs/trust-model.md) for the full chain and
+[`docs/tarball-verification.md`](../docs/tarball-verification.md) for
+operational detail on the tarball-specific path.
 
 ### Files
 
@@ -65,3 +75,11 @@ If the primary fingerprint itself changes, that's a key rotation —
 update `mbunkus-fingerprint.txt` too, but only after confirming the new
 fingerprint via at least two out-of-band channels (e.g., a freshly
 fetched `bunkus.org` page, signed announcement, in-person).
+
+## Periodically validating upstream tag-signing
+
+`tools/check-upstream-tag-signing.sh` clones upstream at recent release
+tags and verifies each against the pinned key. Useful as a sanity check
+that mbunkus is still signing tags consistently — for example after a
+key-drift alert from `verify-mbunkus-key.yml`. Doesn't modify your repo
+or trust artifacts; safe to run anytime.

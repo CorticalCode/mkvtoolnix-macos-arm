@@ -4,7 +4,7 @@ Unofficial macOS builds of [MKVToolNix GUI](https://mkvtoolnix.download/) for Ap
 
 The MKVToolNix developer no longer provides macOS binaries as of v98.0. The CLI tools are available via `brew install mkvtoolnix`, but the GUI is not. This repo builds the full GUI from upstream source.
 
-These are personal builds shared as-is. No warranty, no SLA. Build scripts and patches are in this repo if you want to debug or build yourself.
+This repo is a personal learning project and proof-of-concept; the builds are shared as-is. No warranty, no SLA. Build scripts and patches are in this repo if you want to debug or build yourself.
 
 ## Download
 

@@ -35,6 +35,8 @@ flowchart TD
 
 What happens inside the build script depending on the flag you pass.
 
+> Before any of these modes runs, the build script verifies the upstream release tag's GPG signature against the pinned mbunkus key, and SHA256-verifies each package on cache restore. See [trust-model.md](trust-model.md) for the verification chain.
+
 ```mermaid
 flowchart TD
     START["./build-local.sh [flag] tag"] --> MODE{Flag?}

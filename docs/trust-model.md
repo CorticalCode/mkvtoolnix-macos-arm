@@ -2,6 +2,8 @@
 
 This document describes what `mkvtoolnix-gui-macos` verifies, what it doesn't, and why. If you want the short version, the README's "Trust & install" section covers it. This is the long version for security-minded readers.
 
+> **See also:** [tarball-verification.md](tarball-verification.md) for tarball-specific operational detail (sequence diagrams, refresh procedure, what to do if verification fails).
+
 ## TL;DR
 
 - The DMGs are **ad-hoc signed**, not Apple-notarized. macOS blocks first launch; you override it once.
@@ -21,39 +23,16 @@ This is also consistent with how MacPorts ships `mkvtoolnix +qtgui` today — sa
 
 If you need notarized macOS software, this isn't it, and that's a deliberate choice rather than an oversight or cost-cutting measure.
 
-## The trust chain, drawn out
-
-```
-Pinned mbunkus GPG key (tools/mbunkus-pubkey.asc + tools/mbunkus-fingerprint.txt)
-   │
-   ├─ Cross-checked monthly against three sources
-   │  via .github/workflows/verify-mbunkus-key.yml
-   │     • bunkus.org
-   │     • codeberg.org/mbunkus.gpg
-   │     • keys.openpgp.org
-   │
-   ├──→ git verify-tag on the codeberg release tag
-   │       └─→ trusts the entire codeberg checkout, including:
-   │           • build-local.sh's parent build.sh from upstream
-   │           • specs.sh containing all 14 dependency hashes
-   │           • upstream patches and configuration
-   │
-   └──→ gpg --verify on mkvtoolnix-${VERSION}.tar.xz
-           └─→ trusts the MKVToolNix source code itself
-
-specs.sh hashes (rooted in tag signature above)
-   │
-   └──→ shasum -a 256 -c on every dependency tarball
-        (Qt, boost, libogg, libvorbis, flac, zlib, gettext, cmark,
-         gmp, autoconf, automake, pkgconfig, libiconv, cmake)
-```
+## The trust chain
 
 Two independent paths land at the build:
 
 1. **Tag signature** roots the build scripts and dependency hashes in mbunkus's key.
 2. **Tarball signature** roots the mkvtoolnix source itself in the same key.
 
-Both must succeed for a build to proceed. They cover different attack surfaces (codeberg vs. mkvtoolnix.download) with the same pinned key.
+Both must succeed for a build to proceed. They cover different attack surfaces (codeberg vs. mkvtoolnix.download) with the same pinned key. The chain extends sideways into proven-cache integrity (§6) and forward into build-provenance attestation (§7) for CI builds.
+
+For the tarball-specific path, [tarball-verification.md](tarball-verification.md) is the operational manual: sequence diagrams, drift-detection workflow, what to do if verification fails, key-refresh procedure.
 
 ## What's verified, by step
 
@@ -61,7 +40,7 @@ The relevant code is in `build-local.sh`. Specific blocks:
 
 ### 1. Pinned key integrity
 
-Before either signature check, the embedded fingerprint of `tools/mbunkus-pubkey.asc` is compared against the pinned text fingerprint in `tools/mbunkus-fingerprint.txt`. If they don't match, the build aborts. This catches the case where one but not the other gets tampered with.
+The embedded `tools/mbunkus-pubkey.asc` is checked against the pinned fingerprint in `tools/mbunkus-fingerprint.txt` before either GPG check runs; mismatch aborts the build. See [tarball-verification.md § Trust artifacts](tarball-verification.md#trust-artifacts) for the artifact details, refresh procedure, and drift-detection workflow.
 
 ### 2. Codeberg tag signature
 
@@ -79,7 +58,7 @@ This clones upstream at a few recent release tags, verifies each against the pin
 
 ### 3. Source tarball signature
 
-The `mkvtoolnix-${VERSION}.tar.xz` is downloaded from `mkvtoolnix.download/sources/` (mbunkus's own server) along with its detached `.sig`. `gpg --verify` runs against the pinned key. If verification fails, the build aborts and tells you to either re-download or refresh the pinned key per `tools/README.md`.
+`gpg --verify` runs against the pinned key on the upstream `mkvtoolnix-${VERSION}.tar.xz` and its detached `.sig`. Failure aborts the build with a remediation message. See [tarball-verification.md](tarball-verification.md) for the full operational deep-dive (download flow, sequence diagrams, what to do if verification fails).
 
 ### 4. Dependency SHA256
 
