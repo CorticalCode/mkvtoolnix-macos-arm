@@ -8,12 +8,11 @@ These are personal builds shared as-is. No warranty, no SLA. Build scripts and p
 
 ## Download
 
-Latest release: **[Releases page →](https://github.com/CorticalCode/mkvtoolnix-gui-macos/releases/latest)**
+| Date | Release | MKVToolNix | Apple Silicon | Intel |
+|------|---------|:----------:|:-------------:|:-----:|
+| 2026-04-15 | [v98.0-b2026.04.3](../../releases/tag/v98.0-b2026.04.3) | 98.0 | [DMG (34 MB)](../../releases/download/v98.0-b2026.04.3/MKVToolNix-98.0-macos-apple-silicon.dmg) | [DMG (36 MB)](../../releases/download/v98.0-b2026.04.3/MKVToolNix-98.0-macos-intel.dmg) |
 
-| Architecture | File pattern |
-|---|---|
-| Apple Silicon (M1/M2/M3/M4) | `MKVToolNix-{version}-macos-apple-silicon.dmg` |
-| Intel | `MKVToolNix-{version}-macos-intel.dmg` |
+All releases on the [Releases page](../../releases).
 
 Not sure which? Apple menu → About This Mac. "Apple M_" = Apple Silicon, "Intel Core" = Intel.
 
