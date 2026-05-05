@@ -78,7 +78,7 @@ local replacement and (the stronger guarantee) a hypothetical
 - `build-local.sh` and `tools/build-fork.sh` updated to match.
 
 **Upstream contribution path extended:**
-- Filed PR [#6213](https://codeberg.org/mbunkus/mkvtoolnix/pulls/6213) upstream for issue [#6211](https://codeberg.org/mbunkus/mkvtoolnix/issues/6211) (audio-file browse dialog default directory). First PR-style contribution from `corticalcode`; prior work was filed as issues and implemented by mbunkus.
+- Filed PR [#6213](https://codeberg.org/mbunkus/mkvtoolnix/pulls/6213) upstream for issue [#6211](https://codeberg.org/mbunkus/mkvtoolnix/issues/6211) (audio-file browse dialog default directory). First PR-style contribution from `corticalcode`; prior work was filed as issues and implemented by mbunkus. (Subsequently integrated into `upstream/main` as commit [`d64df538`](https://codeberg.org/mbunkus/mkvtoolnix/commit/d64df53870cadd1870a1029a065be3715134679f) on 2026-04-22; issue #6211 closed.)
 
 ---
 
